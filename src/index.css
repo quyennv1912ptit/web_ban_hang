@@ -1,0 +1,13 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: #f5f5f5;
+    color: #222;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}

@@ -1,0 +1,170 @@
+.auth {
+    --primary: #2563eb;
+    --border: #e0e0e0;
+    --muted: #777;
+    --danger: #d93025;
+    max-width: 440px;
+    margin: 24px auto;
+    padding: 32px 28px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+}
+
+.auth a {
+    color: var(--primary);
+    text-decoration: none;
+}
+.auth a:hover { text-decoration: underline; }
+
+.auth__title {
+    margin: 0 0 24px;
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    color: #222;
+}
+
+/* Form */
+.auth__form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.auth__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.auth__label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+.auth__input {
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.auth__input::placeholder { color: #aaa; }
+.auth__input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.auth__input--error,
+.auth__input--error:focus {
+    border-color: var(--danger);
+}
+.auth__input--error:focus {
+    box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15);
+}
+.auth__error {
+    margin: 0;
+    font-size: 13px;
+    color: var(--danger);
+}
+
+/* Checkbox đồng ý điều khoản */
+.auth__check {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #444;
+    cursor: pointer;
+}
+.auth__check input {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin-top: 3px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+/* Nút gửi */
+.auth__submit {
+    height: 46px;
+    margin-top: 4px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.auth__submit:hover:not(:disabled) { opacity: 0.92; }
+.auth__submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Đường kẻ "HOẶC" */
+.auth__divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0;
+    font-size: 13px;
+    color: #999;
+}
+.auth__divider::before,
+.auth__divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+/* Đăng nhập mạng xã hội */
+.auth__social {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.auth__social-btn {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.auth__social-btn:hover {
+    background: #fafafa;
+    border-color: #ccc;
+}
+
+/* Chuyển giữa đăng nhập / đăng ký */
+.auth__switch {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--muted);
+}
+.auth__switch a { font-weight: 600; }
+
+@media (max-width: 480px) {
+    .auth {
+        margin: 12px auto;
+        padding: 24px 16px;
+        border-radius: 8px;
+        box-shadow: none;
+    }
+    .auth__social { grid-template-columns: 1fr; }
+}
