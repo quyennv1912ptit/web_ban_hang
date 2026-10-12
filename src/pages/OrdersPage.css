@@ -1,0 +1,28 @@
+.orders-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  min-height: 60vh;
+}
+
+.orders-page__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  font-size: 24px;
+  color: #333;
+}
+
+.orders-page__table-container {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Custom thêm một chút cho bảng Ant Design nếu cần */
+.orders-page__table-container .ant-table-thead > tr > th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}

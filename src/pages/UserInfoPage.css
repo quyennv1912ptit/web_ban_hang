@@ -1,0 +1,129 @@
+.user-info-page {
+  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding: 30px 0;
+}
+
+.user-info-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+.user-info-banner {
+  background-color: #2563eb;
+  color: #fff;
+  padding: 30px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+
+.user-info-banner h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+}
+
+.user-info-banner p {
+  margin: 0;
+  font-size: 15px;
+  opacity: 0.9;
+}
+
+.user-profile-card {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.profile-header-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 25px;
+  margin-bottom: 25px;
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #2563eb;
+}
+
+.profile-avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #2563eb;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.profile-intro h2 {
+  margin: 0 0 5px 0;
+  font-size: 22px;
+  color: #333;
+}
+
+.profile-email-sub {
+  font-size: 14px;
+  color: #666;
+}
+
+.profile-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f8fafc;
+  font-size: 15px;
+}
+
+.detail-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.detail-value {
+  color: #333;
+  font-weight: 600;
+}
+
+.role-badge {
+  background-color: #e0e7ff;
+  color: #2563eb;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.user-info-loading, .user-info-error {
+  text-align: center;
+  padding: 100px 0;
+  font-size: 16px;
+  color: #666;
+  background-color: #fff;
+  border-radius: 8px;
+  max-width: 900px;
+  margin: 30px auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.user-info-error {
+  color: #ff4d4f;
+  font-weight: 500;
+}

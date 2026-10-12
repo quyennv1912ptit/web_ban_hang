@@ -21,6 +21,8 @@ import { CATEGORIES } from '../data/mock';
 import SearchBox from './search/SearchBox';
 import './Header.css';
 
+const ADMIN_EMAILS = ['minhhieu15thmay@gmail.com', 'admin_phu@gmail.com'];
+
 const QUICK_LINKS = [
     { label: 'Trang chủ', to: '/', end: true },
     { label: 'Khuyến mãi', to: '/sale' },
@@ -169,6 +171,20 @@ const Header = () => {
                                             <strong>{user.displayName || 'Người dùng'}</strong>
                                             <small>{user.email}</small>
                                         </div>
+
+                                        {/* --- THÊM ĐOẠN NÀY VÀO --- */}
+                                        {/* Kiểm tra xem email đăng nhập có nằm trong danh sách Admin không */}
+                                        {ADMIN_EMAILS.includes(user.email) && (
+                                            <Link 
+                                                to="/admin" 
+                                                role="menuitem" 
+                                                style={{ color: '#d9534f', fontWeight: 'bold' }}
+                                            >
+                                                <FiGrid /> Trang Quản Trị
+                                            </Link>
+                                        )}
+                                        {/* ------------------------- */}
+
                                         <Link to="/account" role="menuitem"><FiUser /> Tài khoản của tôi</Link>
                                         <Link to="/orders" role="menuitem"><FiPackage /> Đơn mua</Link>
                                         <Link to="/wishlist" role="menuitem"><FiHeart /> Yêu thích</Link>
