@@ -21,7 +21,7 @@ import { CATEGORIES } from '../data/mock';
 import SearchBox from './search/SearchBox';
 import './Header.css';
 
-const ADMIN_EMAILS = ['a@gmail.com', 'admin_phu@gmail.com'];
+const ADMIN_EMAILS = ['minhhieu15thmay@gmail.com', 'admin_phu@gmail.com'];
 
 const QUICK_LINKS = [
     { label: 'Trang chủ', to: '/', end: true },
