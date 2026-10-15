@@ -1,0 +1,98 @@
+.new-page {
+  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding: 20px 0;
+}
+
+.new-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.new-banner {
+  background-color: #2563eb;
+  color: #fff;
+  padding: 40px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+
+.new-banner h1 {
+  margin: 0 0 10px 0;
+  font-size: 32px;
+}
+
+.new-banner p {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.new-header-bar {
+  background-color: #fff;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.new-header-bar h2 {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.new-badge-text {
+  background-color: #e0e7ff;
+  color: #2563eb;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.new-card {
+  position: relative;
+}
+
+.new-item-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: #2563eb;
+  color: #fff;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.new-price {
+  color: #2563eb;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.new-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #666;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 8px;
+}
+
+.new-meta .star {
+  color: #faad14;
+  font-weight: bold;
+}
+
+.new-meta .sold-count {
+  color: #666;
+}

@@ -1,0 +1,100 @@
+.bestseller-page {
+  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding: 20px 0;
+}
+
+.bestseller-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.bestseller-banner {
+  background-color: #2563eb; /* Đã đổi sang màu xanh #2563eb */
+  color: #fff;
+  padding: 40px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+
+.bestseller-banner h1 {
+  margin: 0 0 10px 0;
+  font-size: 32px;
+}
+
+.bestseller-banner p {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.bestseller-header-bar {
+  background-color: #fff;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bestseller-header-bar h2 {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.update-text {
+  color: #666;
+  font-size: 14px;
+}
+
+.bestseller-card {
+  position: relative;
+}
+
+.top-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: #fff;
+  font-weight: bold;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  z-index: 1;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Màu riêng cho Top 1, 2, 3 */
+.top-1 { background-color: #faad14; }
+.top-2 { background-color: #52c41a; }
+.top-3 { background-color: #1890ff; }
+
+.bestseller-price {
+  color: #2563eb;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.bestseller-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #666;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 8px;
+}
+
+.bestseller-meta .star {
+  color: #faad14;
+  font-weight: bold;
+}
+
+.bestseller-meta .sold-count {
+  color: #2563eb;
+  font-weight: bold;
+}
