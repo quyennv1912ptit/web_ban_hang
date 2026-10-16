@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './config/firebase';
-import { syncUser } from './api/userApis'; // Hãy đảm bảo đường dẫn này đúng
+import { syncUser } from './api/userApis'; 
 
 import TestConnection from './TestConnection';
 
@@ -29,6 +29,10 @@ import OrdersPage from './pages/OrdersPage';
 // --- Admin Pages ---
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminProducts from './pages/admin/AdminProducts';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminOrders from './pages/admin/AdminOrders';
+import AdminReviews from './pages/admin/AdminReviews';
+import AdminCategories from './pages/admin/AdminCategories';
 
 const App = () => { 
   const [userRole, setUserRole] = useState(null); 
@@ -37,6 +41,14 @@ const App = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // Cấp quyền Admin nhanh dự phòng qua email để không bị nghẽn giao diện
+        const adminEmails = ['minhhieu15thmay@gmail.com', 'admin_phu@gmail.com'];
+        if (firebaseUser.email && adminEmails.includes(firebaseUser.email.toLowerCase())) {
+          setUserRole('admin');
+        } else {
+          setUserRole('customer');
+        }
+
         try {
           const data = {
             uid: firebaseUser.uid,
@@ -46,19 +58,14 @@ const App = () => {
             avatar: firebaseUser.photoURL
           };
           
-          await syncUser(data);
-          
-          // TẠM THỜI HARDCODE ADMIN EMAIL ĐỂ TEST (Thay bằng email Firebase của bạn)
-          const adminEmails = ['admin@gmail.com', 'testadmin@gmail.com']; 
-          if (adminEmails.includes(firebaseUser.email)) {
-            setUserRole('admin');
-          } else {
-            setUserRole('customer');
+          // Đồng bộ với Database PostgreSQL và lấy role chuẩn từ DB
+          const res = await syncUser(data);
+          const dbRole = res?.data?.role || res?.role;
+          if (dbRole) {
+            setUserRole(dbRole);
           }
-          
         } catch (error) {
-          console.error("Lỗi đồng bộ user:", error);
-          setUserRole('customer'); 
+          console.error("Lỗi đồng bộ user API:", error);
         }
       } else {
         setUserRole(null);
@@ -74,18 +81,18 @@ const App = () => {
   }
 
   // --- CÁC COMPONENT BẢO VỆ ROUTE ---
-  
-  // Chỉ cho Admin vào
   const AdminRoute = ({ children }) => {
-    if (userRole !== 'admin') {
+    const firebaseUser = auth.currentUser;
+    const isMasterAdmin = firebaseUser?.email && ['minhhieu15thmay@gmail.com', 'admin_phu@gmail.com'].includes(firebaseUser.email.toLowerCase());
+    
+    if (userRole !== 'admin' && !isMasterAdmin) {
       return <Navigate to="/" replace />;
     }
     return children;
   };
 
-  // Chỉ cho User đã đăng nhập vào (tránh khách lạ vào xem giỏ hàng)
   const PrivateRoute = ({ children }) => {
-    if (!userRole) {
+    if (!auth.currentUser && !userRole) {
       return <Navigate to="/login" replace />;
     }
     return children;
@@ -93,32 +100,29 @@ const App = () => {
 
   return (
     <>
-        {/* COMPONENT TEST KẾT NỐI SẼ LUÔN HIỆN Ở TRÊN CÙNG */}
         <TestConnection />
 
         <Routes>
-            {/* LUỒNG 1: GIAO DIỆN KHÁCH HÀNG (Dùng MainLayout) */}
+            {/* LUỒNG 1: GIAO DIỆN KHÁCH HÀNG */}
             <Route element={<MainLayout />}>
-                {/* Route công khai */}
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
                 <Route path="/product/:id" element={<ProductDetailPage />} />
-                <Route path="/category/:slug" element={<CategoryPage />} />
+                <Route path="/category/:id" element={<CategoryPage />} />
                 <Route path="/sale" element={<SalePage/>} />
                 <Route path="/best-sellers" element={<BestSellerPage/>} />
                 <Route path="/new" element={<NewArrivalsPage/>} />
                 
-                {/* Route yêu cầu đăng nhập */}
                 <Route path="/account" element={<PrivateRoute><UserInfoPage /></PrivateRoute>} />
                 <Route path="/cart" element={<PrivateRoute><CartPage/></PrivateRoute>} />
                 <Route path="/wishlist" element={<PrivateRoute><WishlistPage/></PrivateRoute>} />
                 <Route path="/orders" element={<PrivateRoute><OrdersPage/></PrivateRoute>} />
             </Route>
 
-            {/* LUỒNG 2: GIAO DIỆN ADMIN (Dùng AdminLayout và bọc trong AdminRoute) */}
+            {/* LUỒNG 2: GIAO DIỆN ADMIN */}
             <Route 
               path="/admin" 
               element={
@@ -129,6 +133,10 @@ const App = () => {
             >
                 <Route index element={<AdminDashboard />} />
                 <Route path="products" element={<AdminProducts />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="reviews" element={<AdminReviews />} />
+                <Route path="categories" element={<AdminCategories />} />
             </Route>
 
             <Route path="*" element={<h1 style={{textAlign: 'center'}}>404 - Không tìm thấy trang</h1>} />
