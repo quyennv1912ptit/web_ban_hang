@@ -50,7 +50,9 @@ const CategoryGrid = ({ categories }) => {
             <div className="cat__wrap">
                 <div className="cat__scroller" ref={scrollerRef}>
                     {ordered.map((c) => (
-                        <Link key={c.slug} to={`/category/${c.slug}`} className="cat__item">
+                        // ĐỔI c.slug THÀNH c.id Ở ĐÂY
+                        <Link key={c.id} to={`/category/${c.id}`} className="cat__item">
+                            {/* Nếu backend trả về link ảnh, có thể bạn sẽ cần đổi thành thẻ <img src={c.icon} /> */}
                             <span className="cat__icon" aria-hidden="true">{c.icon}</span>
                             <span className="cat__name">{c.name}</span>
                         </Link>

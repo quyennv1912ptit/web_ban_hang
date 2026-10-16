@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { toast } from 'react-toastify';
+import axios from 'axios';
 import {
     FiShoppingCart,
     FiHeart,
@@ -17,11 +18,8 @@ import {
 import { auth } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
-import { CATEGORIES } from '../data/mock';
 import SearchBox from './search/SearchBox';
 import './Header.css';
-
-const ADMIN_EMAILS = ['minhhieu15thmay@gmail.com', 'admin_phu@gmail.com'];
 
 const QUICK_LINKS = [
     { label: 'Trang chủ', to: '/', end: true },
@@ -39,17 +37,29 @@ const Header = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [catOpen, setCatOpen] = useState(false);
+    const [categories, setCategories] = useState([]); 
+
     const userMenuRef = useRef(null);
     const catMenuRef = useRef(null);
 
-    // Đóng mọi menu khi chuyển trang
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const response = await axios.get('http://127.0.0.1:8000/api/categories/');
+                setCategories(response.data);
+            } catch (error) {
+                console.error("Lỗi tải danh mục trên Header:", error);
+            }
+        };
+        fetchCategories();
+    }, []);
+
     useEffect(() => {
         setMobileOpen(false);
         setUserMenuOpen(false);
         setCatOpen(false);
     }, [location.pathname]);
 
-    // Đóng dropdown khi bấm ra ngoài hoặc nhấn Escape
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -87,9 +97,11 @@ const Header = () => {
     const displayName = user?.displayName || user?.email || 'Tài khoản';
     const initial = displayName.charAt(0).toUpperCase();
 
+    // Kiểm tra xem user hiện tại có phải admin không (check qua email hoặc role từ DB)
+    const isAdmin = user?.email && ['minhhieu15thmay@gmail.com', 'admin_phu@gmail.com'].includes(user.email.toLowerCase());
+
     return (
         <header className="header">
-            {/* Thanh trên cùng */}
             <div className="header__topbar">
                 <div className="header__container header__topbar-inner">
                     <span><FiPhone /> Hotline: 0123 456 789</span>
@@ -100,7 +112,6 @@ const Header = () => {
                 </div>
             </div>
 
-            {/* Thanh chính */}
             <div className="header__main">
                 <div className="header__container header__main-inner">
                     <button
@@ -117,7 +128,6 @@ const Header = () => {
                         Pờ tít <span>Shop</span>
                     </Link>
 
-                    {/* Ô tìm kiếm duy nhất của cả app (chữ + ảnh) */}
                     <div className="header__search">
                         <SearchBox variant="compact" />
                     </div>
@@ -172,9 +182,8 @@ const Header = () => {
                                             <small>{user.email}</small>
                                         </div>
 
-                                        {/* --- THÊM ĐOẠN NÀY VÀO --- */}
-                                        {/* Kiểm tra xem email đăng nhập có nằm trong danh sách Admin không */}
-                                        {ADMIN_EMAILS.includes(user.email) && (
+                                        {/* HIỂN THỊ NÚT QUẢN TRỊ CHO ADMIN */}
+                                        {isAdmin && (
                                             <Link 
                                                 to="/admin" 
                                                 role="menuitem" 
@@ -183,7 +192,6 @@ const Header = () => {
                                                 <FiGrid /> Trang Quản Trị
                                             </Link>
                                         )}
-                                        {/* ------------------------- */}
 
                                         <Link to="/account" role="menuitem"><FiUser /> Tài khoản của tôi</Link>
                                         <Link to="/orders" role="menuitem"><FiPackage /> Đơn mua</Link>
@@ -204,7 +212,6 @@ const Header = () => {
                 </div>
             </div>
 
-            {/* Nav: nút Danh mục + link nhanh (mobile: menu trượt) */}
             <nav className={`header__nav ${mobileOpen ? 'is-open' : ''}`} aria-label="Điều hướng chính">
                 <div className="header__container header__nav-inner">
                     <div className="header__cats" ref={catMenuRef}>
@@ -220,9 +227,8 @@ const Header = () => {
 
                         {catOpen && (
                             <div className="header__cats-panel">
-                                {CATEGORIES.map((c) => (
-                                    <Link key={c.slug} to={`/category/${c.slug}`}>
-                                        <span aria-hidden="true">{c.icon}</span>
+                                {categories.map((c) => (
+                                    <Link key={c.id} to={`/category/${c.id}`}>
                                         {c.name}
                                     </Link>
                                 ))}

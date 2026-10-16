@@ -1,85 +1,96 @@
-import React, { useState, useEffect } from 'react';
-import { PRODUCTS } from '../data/mock';
-import './SalePage.css'; // Import file CSS riêng
+import React, { useState, useEffect, useMemo } from 'react';
+import axios from 'axios';
+import ProductCard from '../components/home/ProductCard'; 
+import '../pages/CategoryPage.css'; 
 
-function SalePage() {
-  const [saleProducts, setSaleProducts] = useState([]);
+const SalePage = () => {
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    
+    // 1. Thêm State để lưu tiêu chí lọc
+    const [sortOption, setSortOption] = useState('newest');
 
-  useEffect(() => {
-    const discountedProducts = PRODUCTS.filter(item => item.oldPrice && item.oldPrice > item.price);
-    setSaleProducts(discountedProducts);
-  }, []);
+    useEffect(() => {
+        const fetchSaleProducts = async () => {
+            try {
+                setLoading(true);
+                const res = await axios.get('http://127.0.0.1:8000/api/products/?on_sale=true');
+                setProducts(res.data.items || res.data || []);
+            } catch (err) {
+                console.error("Lỗi khi tải sản phẩm khuyến mãi:", err);
+                setError("Không thể tải danh sách khuyến mãi.");
+            } finally {
+                setLoading(false);
+            }
+        };
 
-  const formatPrice = (price) => {
-    return price.toLocaleString('vi-VN') + 'đ';
-  };
+        fetchSaleProducts();
+    }, []);
 
-  const calculateDiscount = (price, oldPrice) => {
-    if (!oldPrice || oldPrice <= price) return 0;
-    return Math.round(((oldPrice - price) / oldPrice) * 100);
-  };
+    // 2. Logic tự động sắp xếp sản phẩm khi chọn bộ lọc
+    const sortedProducts = useMemo(() => {
+        let result = [...products];
+        switch (sortOption) {
+            case 'price_asc':
+                // Giá từ thấp đến cao
+                return result.sort((a, b) => (a.price || a.gia_ban || 0) - (b.price || b.gia_ban || 0));
+            case 'biggest_discount':
+                // Giảm nhiều nhất (Tính mức chênh lệch giữa giá gốc và giá bán)
+                return result.sort((a, b) => {
+                    const discountA = (a.original_price || a.gia_goc || a.price || 0) - (a.price || a.gia_ban || 0);
+                    const discountB = (b.original_price || b.gia_goc || b.price || 0) - (b.price || b.gia_ban || 0);
+                    return discountB - discountA; // Thằng nào giảm nhiều tiền hơn xếp lên đầu
+                });
+            case 'newest':
+            default:
+                // Mới cập nhật (Dựa vào ID lớn xếp trước)
+                return result.sort((a, b) => b.id - a.id);
+        }
+    }, [products, sortOption]);
 
-  return (
-    <div className="sale-page">
-      <div className="sale-container">
-        
-        {/* Banner Khuyến Mãi */}
-        <div className="sale-banner">
-          <h1>🔥 SIÊU SALE CUỐI THÁNG 🔥</h1>
-          <p>Giảm đến 50% cho hàng nghìn sản phẩm. Nhanh tay kẻo lỡ!</p>
-        </div>
+    if (loading) {
+        return <div className="category-page flex justify-center items-center h-64"><h3>Đang tải siêu sale...</h3></div>;
+    }
 
-        {/* Khung bộ lọc */}
-        <div className="sale-filter-bar">
-          <h2>Có {saleProducts.length} sản phẩm đang giảm giá</h2>
-          <select className="sale-select">
-            <option>Giảm nhiều nhất</option>
-            <option>Bán chạy nhất</option>
-          </select>
-        </div>
+    if (error) {
+        return <div className="category-page flex justify-center items-center h-64 text-red-500"><h3>{error}</h3></div>;
+    }
 
-        {/* Lưới sản phẩm */}
-        <div className="product-grid">
-          {saleProducts.map((product) => {
-            const discountPercent = calculateDiscount(product.price, product.oldPrice);
-            
-            return (
-              <div key={product.id} className="product-card sale-card">
-                {discountPercent > 0 && (
-                  <div className="discount-badge">
-                    -{discountPercent}%
-                  </div>
-                )}
-
-                <img src={product.image} alt={product.name} className="product-img" />
+    return (
+        <div className="category-page">
+            <div className="category-container">
                 
-                <div className="product-info">
-                  <h3 className="product-title">{product.name}</h3>
-                  
-                  <div>
-                    <div className="product-prices">
-                      <span className="sale-price">{formatPrice(product.price)}</span>
-                      <span className="product-old-price">{formatPrice(product.oldPrice)}</span>
-                    </div>
-
-                    {/* Thanh tiến trình */}
-                    <div className="progress-bar-container">
-                      <div 
-                        className="progress-bar-fill" 
-                        style={{ width: `${Math.min(product.sold / 50, 100)}%` }}
-                      ></div>
-                      <span className="progress-text">ĐÃ BÁN {product.sold}</span>
-                    </div>
-                  </div>
+                {/* Header trang Khuyến mãi */}
+                <div className="category-header">
+                    <h2>🔥 Ưu Đãi Khủng - Siêu Sale Cuối Tháng 🔥</h2>
+                    {/* 3. Gắn biến State và hàm onChange vào thẻ select */}
+                    <select 
+                        className="category-select"
+                        value={sortOption}
+                        onChange={(e) => setSortOption(e.target.value)}
+                    >
+                        <option value="newest">Mới cập nhật</option>
+                        <option value="biggest_discount">Giảm nhiều nhất</option>
+                        <option value="price_asc">Giá từ thấp đến cao</option>
+                    </select>
                 </div>
-              </div>
-            );
-          })}
-        </div>
 
-      </div>
-    </div>
-  );
-}
+                {/* 4. Render danh sách đã được sắp xếp (sortedProducts) */}
+                {sortedProducts.length > 0 ? (
+                    <div className="product-grid">
+                        {sortedProducts.map((product) => (
+                            <ProductCard key={product.id} product={product} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="empty-state">
+                        <h3>Hiện tại chưa có chương trình khuyến mãi nào.</h3>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 export default SalePage;

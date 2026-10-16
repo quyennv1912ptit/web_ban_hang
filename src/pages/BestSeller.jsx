@@ -1,75 +1,93 @@
-import React, { useState, useEffect } from 'react';
-import { PRODUCTS } from '../data/mock';
-import './BestSeller.css'; // Import file CSS riêng
+import React, { useState, useEffect, useMemo } from 'react';
+import axios from 'axios';
+import ProductCard from '../components/home/ProductCard'; 
+import '../pages/CategoryPage.css'; 
 
-function BestSeller() {
-  const [bestSellers, setBestSellers] = useState([]);
+const BestSellerPage = () => {
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const sortedProducts = [...PRODUCTS].sort((a, b) => b.sold - a.sold);
-    setBestSellers(sortedProducts);
-  }, []);
+    // 1. Thêm State để lưu danh mục đang chọn
+    const [filterCategory, setFilterCategory] = useState('all');
 
-  const formatPrice = (price) => {
-    return price.toLocaleString('vi-VN') + 'đ';
-  };
+    useEffect(() => {
+        const fetchBestSellers = async () => {
+            try {
+                setLoading(true);
+                const res = await axios.get('http://127.0.0.1:8000/api/products/?sort=best_selling');
+                setProducts(res.data.items || res.data || []);
+            } catch (err) {
+                console.error("Lỗi khi tải sản phẩm bán chạy:", err);
+                setError("Không thể tải danh sách sản phẩm.");
+            } finally {
+                setLoading(false);
+            }
+        };
 
-  return (
-    <div className="bestseller-page">
-      <div className="bestseller-container">
-        
-        {/* Banner trang Bán chạy */}
-        <div className="bestseller-banner">
-          <h1>👑 TOP SẢN PHẨM BÁN CHẠY 👑</h1>
-          <p>Những mặt hàng được khách hàng tin tưởng và lựa chọn nhiều nhất!</p>
-        </div>
+        fetchBestSellers();
+    }, []);
 
-        {/* Thanh tiêu đề nhỏ */}
-        <div className="bestseller-header-bar">
-          <h2>Danh sách xếp hạng sản phẩm Hot</h2>
-          <span className="update-text">Cập nhật liên tục theo giờ</span>
-        </div>
+    // 2. Logic lọc sản phẩm theo danh mục ngay trên Frontend
+    const filteredProducts = useMemo(() => {
+        if (filterCategory === 'all') return products;
 
-        {/* Lưới sản phẩm Best Seller */}
-        <div className="product-grid">
-          {bestSellers.map((product, index) => {
-            const isTop3 = index < 3;
-            
-            return (
-              <div key={product.id} className="product-card bestseller-card">
-                {isTop3 && (
-                  <div className={`top-badge top-${index + 1}`}>
-                    Top {index + 1} 🔥
-                  </div>
-                )}
+        return products.filter(product => {
+            // Lấy tên danh mục của sản phẩm (hỗ trợ nhiều format trường dữ liệu từ backend)
+            const catName = (product.category?.name || product.category_name || product.ten_danh_muc || '').toLowerCase();
 
-                <img src={product.image} alt={product.name} className="product-img" />
+            if (filterCategory === 'fashion') {
+                return catName.includes('thời trang') || catName.includes('áo') || catName.includes('quần') || catName.includes('giày') || catName.includes('túi');
+            }
+            if (filterCategory === 'tech') {
+                return catName.includes('công nghệ') || catName.includes('điện thoại') || catName.includes('máy tính') || catName.includes('laptop') || catName.includes('điện tử');
+            }
+            return true;
+        });
+    }, [products, filterCategory]);
+
+    if (loading) {
+        return <div className="category-page flex justify-center items-center h-64"><h3>Đang tải danh sách bán chạy...</h3></div>;
+    }
+
+    if (error) {
+        return <div className="category-page flex justify-center items-center h-64 text-red-500"><h3>{error}</h3></div>;
+    }
+
+    return (
+        <div className="category-page">
+            <div className="category-container">
                 
-                <div className="product-info">
-                  <h3 className="product-title">{product.name}</h3>
-                  
-                  <div>
-                    <div className="product-prices">
-                      <span className="bestseller-price">{formatPrice(product.price)}</span>
-                      {product.oldPrice && (
-                        <span className="product-old-price">{formatPrice(product.oldPrice)}</span>
-                      )}
-                    </div>
-
-                    <div className="bestseller-meta">
-                      <span className="star">★ {product.rating}</span>
-                      <span className="sold-count">Đã bán: {product.sold}</span>
-                    </div>
-                  </div>
+                {/* Header trang */}
+                <div className="category-header">
+                    <h2>🏆 Top Sản Phẩm Bán Chạy Nhất 🏆</h2>
+                    {/* 3. Gắn State và sự kiện onChange vào thẻ select */}
+                    <select 
+                        className="category-select"
+                        value={filterCategory}
+                        onChange={(e) => setFilterCategory(e.target.value)}
+                    >
+                        <option value="all">Tất cả danh mục</option>
+                        <option value="fashion">Thời trang</option>
+                        <option value="tech">Công nghệ</option>
+                    </select>
                 </div>
-              </div>
-            );
-          })}
+
+                {/* 4. Map dữ liệu từ mảng đã lọc (filteredProducts) */}
+                {filteredProducts.length > 0 ? (
+                    <div className="product-grid">
+                        {filteredProducts.map((product) => (
+                            <ProductCard key={product.id} product={product} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="empty-state">
+                        <h3>Hiện tại chưa có sản phẩm bán chạy nào trong mục này.</h3>
+                    </div>
+                )}
+            </div>
         </div>
+    );
+};
 
-      </div>
-    </div>
-  );
-}
-
-export default BestSeller;
+export default BestSellerPage;
