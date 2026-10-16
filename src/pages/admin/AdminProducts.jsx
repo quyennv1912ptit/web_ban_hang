@@ -12,7 +12,8 @@ import {
   message, 
   Popconfirm, 
   Tag, 
-  Image 
+  Image,
+  Upload 
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import axios from 'axios';
@@ -26,10 +27,13 @@ const AdminProducts = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  
+  // State quản lý file ảnh tải lên
+  const [fileList, setFileList] = useState([]);
 
   const [form] = Form.useForm();
 
-  // Lấy Firebase Token
+  // Lấy Firebase Token cho các Request Admin
   const getAuthHeader = async () => {
     try {
       const user = auth.currentUser;
@@ -42,24 +46,23 @@ const AdminProducts = () => {
     }
   };
 
-  // Tải dữ liệu Sản phẩm & Danh mục
+  // Tải dữ liệu Sản phẩm & Danh mục từ Backend
   const fetchData = async () => {
     setLoading(true);
     try {
       const headers = await getAuthHeader();
       
       const [resProducts, resCategories] = await Promise.all([
-        axios.get('http://127.0.0.1:8000/api/admin/products', { headers }).catch(() => 
-          axios.get('http://127.0.0.1:8000/api/products') 
-        ),
-        axios.get('http://127.0.0.1:8000/api/categories/')
+        axios.get('http://127.0.0.1:8000/api/admin/products', { headers }),
+        axios.get('http://127.0.0.1:8000/api/admin/categories', { headers })
       ]);
 
+      // Hỗ trợ cấu trúc trả về phân trang (Page[Product]) hoặc mảng thông thường
       setProducts(resProducts.data?.items || resProducts.data || []);
       setCategories(resCategories.data?.items || resCategories.data || []);
     } catch (error) {
       console.error("Lỗi tải dữ liệu:", error);
-      message.error("Không thể tải danh sách sản phẩm!");
+      message.error("Không thể tải danh sách sản phẩm hoặc danh mục!");
     } finally {
       setLoading(false);
     }
@@ -69,10 +72,11 @@ const AdminProducts = () => {
     fetchData();
   }, []);
 
-  // Mở Modal (Sử dụng setTimeout để Form kịp mount trước khi set value tránh lỗi 422)
+  // Mở Modal (Thêm / Sửa sản phẩm)
   const handleOpenModal = (product = null) => {
     setEditingProduct(product);
     setIsModalOpen(true);
+    setFileList([]); // Reset danh sách ảnh
 
     setTimeout(() => {
       if (product) {
@@ -80,7 +84,8 @@ const AdminProducts = () => {
           name: product.name || '',
           price: product.price || 0,
           original_price: product.original_price || null,
-          stock: product.stock ?? 0,
+          // Đọc đúng biến stock_quantity từ backend
+          stock: product.stock_quantity ?? product.stock ?? 0,
           category_id: product.category_id || null,
           description: product.description || '',
           is_active: product.is_active ?? true,
@@ -95,17 +100,18 @@ const AdminProducts = () => {
     setIsModalOpen(false);
     setEditingProduct(null);
     form.resetFields();
+    setFileList([]);
   };
 
-  // Thêm hàm tạo slug tự động từ tên tiếng Việt
+  // Tự động sinh slug chuẩn từ tên tiếng Việt
   const generateSlug = (text) => {
     return text.toString().toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Xóa dấu tiếng Việt
-      .replace(/[^a-z0-9]+/g, "-") // Thay khoảng trắng và ký tự đặc biệt bằng dấu gạch ngang
-      .replace(/^-+|-+$/g, ""); // Cắt dấu gạch ngang ở đầu và cuối
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
+      .replace(/[^a-z0-9]+/g, "-") 
+      .replace(/^-+|-+$/g, ""); 
   };
 
-  // Submit Form
+  // Submit Form: Lưu thông tin chữ -> Lấy ID -> Upload ảnh lên Backend/Cloud
   const handleSubmit = async (values) => {
     setSubmitting(true);
     try {
@@ -113,36 +119,52 @@ const AdminProducts = () => {
       
       const payload = {
         name: values.name,
-        // TỰ ĐỘNG SINH SLUG TỪ TÊN SẢN PHẨM TRUYỀN LÊN CHO BACKEND
         slug: generateSlug(values.name), 
         price: Number(values.price),
         original_price: values.original_price ? Number(values.original_price) : null,
-        stock_quantity: Number(values.stock || 0),
+        stock_quantity: Number(values.stock || 0), // Khớp chuẩn Pydantic schema
         category_id: values.category_id ? Number(values.category_id) : null,
         description: values.description || '',
         is_active: values.is_active ?? true,
       };
 
+      let productId = editingProduct?.id;
+
+      // BƯỚC 1: Tạo mới hoặc Cập nhật thông tin cơ bản
       if (editingProduct) {
         await axios.put(
-          `http://127.0.0.1:8000/api/admin/products/${editingProduct.id}`,
+          `http://127.0.0.1:8000/api/admin/products/${productId}`,
           payload,
           { headers }
         );
         message.success('Cập nhật sản phẩm thành công!');
       } else {
-        await axios.post(
+        const res = await axios.post(
           'http://127.0.0.1:8000/api/admin/products',
           payload,
           { headers }
         );
+        productId = res.data.id; 
         message.success('Thêm sản phẩm mới thành công!');
+      }
+
+      // BƯỚC 2: Upload file ảnh (nếu người dùng có chọn ảnh mới)
+      if (fileList.length > 0 && fileList[0].originFileObj) {
+        const formData = new FormData();
+        formData.append('file', fileList[0].originFileObj);
+
+        await axios.post(
+          `http://127.0.0.1:8000/api/admin/products/${productId}/images`,
+          formData,
+          { headers } // Giữ nguyên headers xác thực, để axios tự động xử lý multipart boundary
+        );
+        message.success('Tải ảnh lên thành công!');
       }
 
       handleCloseModal();
       fetchData(); 
     } catch (error) {
-      console.error("Chi tiết lỗi 422 từ Backend:", error.response?.data);
+      console.error("Chi tiết lỗi từ Backend:", error.response?.data);
       const detail = error.response?.data?.detail;
       message.error(
         Array.isArray(detail)
@@ -173,8 +195,9 @@ const AdminProducts = () => {
       dataIndex: 'images',
       key: 'images',
       width: 80,
-      render: (images, record) => {
-        const imgUrl = images?.[0]?.url || record.image_url || 'https://via.placeholder.com/60';
+      render: (images) => {
+        // Lấy đúng trường original_url từ bảng ProductImage của backend
+        const imgUrl = images?.[0]?.original_url || 'https://via.placeholder.com/60';
         return <Image src={imgUrl} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 4 }} alt="" />;
       }
     },
@@ -201,11 +224,9 @@ const AdminProducts = () => {
     },
     {
       title: 'Kho hàng',
-      key: 'stock', // Xóa dòng dataIndex: 'stock' cũ đi
+      key: 'stock', 
       render: (_, record) => {
-        // Tự động quét tìm trường số lượng tồn kho mà backend trả về
-        const currentStock = record.stock ?? record.stock_quantity ?? record.quantity ?? 0;
-        
+        const currentStock = record.stock_quantity ?? record.stock ?? 0;
         return (
           <Tag color={currentStock > 0 ? 'green' : 'red'}>
             {currentStock > 0 ? `Còn ${currentStock}` : 'Hết hàng'}
@@ -238,7 +259,6 @@ const AdminProducts = () => {
           >
             Sửa
           </Button>
-
           <Popconfirm
             title="Xác nhận xóa"
             description="Bạn có chắc chắn muốn xóa sản phẩm này?"
@@ -278,7 +298,6 @@ const AdminProducts = () => {
         pagination={{ pageSize: 8 }}
       />
 
-      {/* Sửa cảnh báo destroyOnClose thành destroyOnHidden */}
       <Modal
         title={editingProduct ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
         open={isModalOpen}
@@ -354,6 +373,23 @@ const AdminProducts = () => {
 
           <Form.Item name="description" label="Mô tả sản phẩm">
             <Input.TextArea rows={3} placeholder="Nhập thông tin mô tả chi tiết..." />
+          </Form.Item>
+
+          <Form.Item label="Ảnh sản phẩm">
+            <Upload
+              beforeUpload={() => false} 
+              maxCount={1}               
+              listType="picture-card"
+              fileList={fileList}
+              onChange={({ fileList }) => setFileList(fileList)}
+            >
+              {fileList.length >= 1 ? null : (
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>Chọn ảnh</div>
+                </div>
+              )}
+            </Upload>
           </Form.Item>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>

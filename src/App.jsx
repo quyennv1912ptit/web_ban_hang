@@ -4,7 +4,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './config/firebase';
 import { syncUser } from './api/userApis'; 
 
-import TestConnection from './TestConnection';
 
 // --- Layouts ---
 import MainLayout from './layouts/MainLayout';
@@ -100,7 +99,6 @@ const App = () => {
 
   return (
     <>
-        <TestConnection />
 
         <Routes>
             {/* LUỒNG 1: GIAO DIỆN KHÁCH HÀNG */}
