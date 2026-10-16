@@ -11,14 +11,18 @@ const ProductCard = ({ product }) => {
         ? Math.round((1 - product.price / product.oldPrice) * 100)
         : 0;
 
-    const handleAdd = () => {
-        addToCart({
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            image: product.image,
-        });
-        toast.success('Đã thêm vào giỏ hàng');
+    const handleAdd = async () => {
+        try {
+            await addToCart({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                image: product.image,
+            });
+            toast.success('Đã thêm vào giỏ hàng');
+        } catch (error) {
+            toast.error(error.response?.data?.detail || error.message || 'Không thể thêm vào giỏ hàng');
+        }
     };
 
     return (

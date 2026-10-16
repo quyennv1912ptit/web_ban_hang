@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     FiMinus,
     FiPlus,
@@ -9,8 +9,8 @@ import {
 } from 'react-icons/fi';
 import './ProductDetailPage.css';
 
-import { useNavigate } from 'react-router-dom';
-import cartApi from '../api/cartApi'; // Đảm bảo đường dẫn này trỏ đúng tới file cartApi.js bạn vừa tạo
+import axiosClient from '../api/axiosClient';
+import { useCart } from '../contexts/CartContext';
 
 // Mock data mô phỏng cấu trúc dữ liệu từ Database.
 const mockProduct = {
@@ -101,21 +101,107 @@ const ratingStats = [
 ];
 
 const ProductDetailPage = () => {
-    const product = mockProduct;
+    const { id } = useParams();
     const navigate = useNavigate();
-
-    const [mainImage, setMainImage] = useState(
-        product.images[0]?.original_url || ''
-    );
+    const { addToCart } = useCart();
+    const [productData, setProductData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [mainImage, setMainImage] = useState('');
     const [quantity, setQuantity] = useState(1);
-    const [selectedColor, setSelectedColor] = useState(
-        product.attributes.color?.[0] || ''
-    );
-
-    const [reviews, setReviews] = useState(mockReviews);
+    const [selectedColor, setSelectedColor] = useState('');
+    const [reviews, setReviews] = useState([]);
     const [reviewRating, setReviewRating] = useState(5);
     const [reviewContent, setReviewContent] = useState('');
     const [hoverRating, setHoverRating] = useState(0);
+
+    useEffect(() => {
+        let active = true;
+
+        const loadProduct = async () => {
+            setLoading(true);
+            setLoadError('');
+
+            try {
+                const productResponse = await axiosClient.get(`/products/${id}`);
+                if (!active) return;
+
+                const images = Array.isArray(productResponse.images)
+                    ? [...productResponse.images].sort((a, b) => a.position - b.position)
+                    : [];
+                const loadedProduct = {
+                    ...productResponse,
+                    price: Number(productResponse.price ?? 0),
+                    original_price: productResponse.original_price == null
+                        ? null
+                        : Number(productResponse.original_price),
+                    average_rating: Number(productResponse.average_rating ?? 0),
+                    stock_quantity: Number(productResponse.stock_quantity ?? 0),
+                    sold_count: Number(productResponse.sold_count ?? 0),
+                    attributes: productResponse.attributes ?? {},
+                    category: productResponse.category ?? null,
+                    images,
+                };
+
+                setProductData(loadedProduct);
+                setMainImage(images[0]?.cropped_url || images[0]?.original_url || '');
+                const colors = loadedProduct.attributes.color;
+                setSelectedColor(Array.isArray(colors) ? colors[0] || '' : '');
+
+                try {
+                    const reviewResponse = await axiosClient.get(`/products/${id}/reviews`, {
+                        params: { page: 1, size: 100 },
+                    });
+                    const reviewRows = Array.isArray(reviewResponse)
+                        ? reviewResponse
+                        : reviewResponse.items ?? [];
+                    if (active) {
+                        setReviews(reviewRows.map((review) => ({
+                            id: review.id,
+                            userName: `Người dùng ${String(review.user_id ?? '').slice(0, 8)}`,
+                            rating: Number(review.rating ?? 0),
+                            createdAt: review.created_at
+                                ? new Date(review.created_at).toLocaleDateString('vi-VN')
+                                : '',
+                            content: review.comment ?? '',
+                        })));
+                        loadedProduct.reviews_count = reviewResponse.total ?? reviewRows.length;
+                        setProductData({ ...loadedProduct });
+                    }
+                } catch {
+                    if (active) setReviews([]);
+                }
+            } catch (error) {
+                if (active) {
+                    setLoadError(error.response?.data?.detail || 'Không tải được sản phẩm từ backend.');
+                }
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+
+        loadProduct();
+        return () => { active = false; };
+    }, [id]);
+
+    const product = productData || {
+        ...mockProduct,
+        id,
+        category: null,
+        images: [],
+        attributes: {},
+        price: 0,
+        original_price: null,
+        stock_quantity: 0,
+        sold_count: 0,
+        average_rating: 0,
+        reviews_count: 0,
+        description: '',
+    };
+    const ratingStats = [5, 4, 3, 2, 1].map((stars) => ({
+        stars,
+        count: reviews.filter((review) => review.rating === stars).length,
+    }));
 
     const discountPercent = useMemo(() => {
         if (product.original_price <= product.price) return 0;
@@ -150,11 +236,9 @@ const ProductDetailPage = () => {
     };
 
     const handleAddToCart = async () => {
+        if (!productData) return;
         try {
-            await cartApi.addItem({
-                product_id: product.id, // Chỗ này đang gửi mock ID nè
-                quantity: quantity
-            });
+            await addToCart(product, quantity);
             alert(`✅ Đã thêm ${quantity} sản phẩm vào giỏ hàng!`);
         } catch (error) {
             console.error('Lỗi thêm giỏ hàng:', error);
@@ -165,11 +249,9 @@ const ProductDetailPage = () => {
         }
     };
     const handleBuyNow = async () => {
+        if (!productData) return;
         try {
-            await cartApi.addItem({
-                product_id: product.id,
-                quantity: quantity
-            });
+            await addToCart(product, quantity);
             
             // Thêm thành công thì chuyển hướng ngay sang trang giỏ hàng
             navigate('/cart');
@@ -220,16 +302,23 @@ const ProductDetailPage = () => {
         });
     };
 
+    if (loading) return <main className="product-page">Đang tải sản phẩm...</main>;
+    if (loadError || !productData) {
+        return <main className="product-page" role="alert">{loadError || 'Không tìm thấy sản phẩm.'}</main>;
+    }
+
     return (
         <main className="product-page">
             {/* Breadcrumb */}
             <nav className="product-breadcrumb" aria-label="Breadcrumb">
                 <Link to="/">Trang chủ</Link>
                 <span aria-hidden="true">›</span>
-                <Link to={`/category/${product.category.slug}`}>
-                    {product.category.name}
-                </Link>
-                <span aria-hidden="true">›</span>
+                {product.category && <>
+                    <Link to={`/category/${product.category.slug}`}>
+                        {product.category.name}
+                    </Link>
+                    <span aria-hidden="true">›</span>
+                </>}
                 <span className="product-breadcrumb__current">
                     {product.name}
                 </span>
@@ -254,8 +343,8 @@ const ProductDetailPage = () => {
 
                     <div className="gallery-thumbnails">
                         {product.images.map((image, index) => {
-                            const isActive =
-                                mainImage === image.original_url;
+                            const imageUrl = image.cropped_url || image.original_url;
+                            const isActive = mainImage === imageUrl;
 
                             return (
                                 <button
@@ -265,13 +354,13 @@ const ProductDetailPage = () => {
                                         isActive ? 'active' : ''
                                     }`}
                                     onClick={() =>
-                                        setMainImage(image.original_url)
+                                        setMainImage(imageUrl)
                                     }
                                     aria-label={`Xem hình ảnh ${index + 1}`}
                                     aria-pressed={isActive}
                                 >
                                     <img
-                                        src={image.original_url}
+                                        src={imageUrl}
                                         alt={`${product.name} - hình ${index + 1}`}
                                     />
                                 </button>
@@ -290,7 +379,7 @@ const ProductDetailPage = () => {
                                 ★ {product.average_rating}
                             </span>
                             <span>
-                                {product.reviews_count} Đánh giá
+                                {product.reviews_count ?? reviews.length} Đánh giá
                             </span>
                         </div>
 

@@ -1,10 +1,21 @@
 import axiosClient from "./axiosClient";
 
 const cartApi = {
-    // Gọi API POST /api/cart/items của FastAPI
+    getItems() {
+        return axiosClient.get('/cart/');
+    },
     addItem(data) {
-        return axiosClient.post('/cart/items', data);
-    }
+        return axiosClient.post('/cart/', data);
+    },
+    updateItem(productId, quantity) {
+        return axiosClient.put(`/cart/${productId}`, { quantity });
+    },
+    removeItem(productId) {
+        return axiosClient.delete(`/cart/${productId}`);
+    },
+    clear() {
+        return axiosClient.delete('/cart/');
+    },
 };
 
 export default cartApi;
