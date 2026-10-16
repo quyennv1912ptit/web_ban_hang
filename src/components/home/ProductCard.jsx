@@ -4,6 +4,7 @@ import { FiShoppingCart, FiStar } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { useCart } from '../../contexts/CartContext';
 import { formatPrice } from '../../utils/format';
+import FavoriteButton from '../FavoriteButton'; // 1. Import component nút thả tim (chỉnh lại đường dẫn file nếu cần)
 
 const ProductCard = ({ product }) => {
     const { addToCart } = useCart();
@@ -31,13 +32,20 @@ const ProductCard = ({ product }) => {
 
     return (
         <article className="product">
-            <Link to={`/product/${id}`} className="product__link">
-                <div className="product__img-wrap">
-                    <img src={image} alt={name} loading="lazy" />
-                    {discount > 0 && <span className="product__discount">-{discount}%</span>}
+            <div style={{ position: 'relative' }}>
+                <Link to={`/product/${id}`} className="product__link">
+                    <div className="product__img-wrap">
+                        <img src={image} alt={name} loading="lazy" />
+                        {discount > 0 && <span className="product__discount">-{discount}%</span>}
+                    </div>
+                    <h3 className="product__name">{name}</h3>
+                </Link>
+
+                {/* 2. Đặt nút FavoriteButton nổi trên góc phải của khung ảnh */}
+                <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10 }}>
+                    <FavoriteButton productId={id} />
                 </div>
-                <h3 className="product__name">{name}</h3>
-            </Link>
+            </div>
 
             <div className="product__price">
                 <strong>{formatPrice(price)}</strong>

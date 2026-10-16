@@ -4,6 +4,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './config/firebase';
 import { syncUser } from './api/userApis'; 
 
+// --- Contexts ---
+import { FavoritesProvider } from './contexts/FavoritesContext'; // 1. Import FavoritesProvider
 
 // --- Layouts ---
 import MainLayout from './layouts/MainLayout';
@@ -15,8 +17,8 @@ import RegisterPage from './pages/RegisterPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import HomePage from './pages/HomePage';
-import UserInfoPage from "./pages/UserInfoPage"
-import ProductDetailPage from "./pages/ProductDetailPage"
+import UserInfoPage from "./pages/UserInfoPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
 import CategoryPage from './pages/CategoryPage';
 import SalePage from './pages/SalePage';
 import BestSellerPage from './pages/BestSeller';
@@ -98,48 +100,48 @@ const App = () => {
   };
 
   return (
-    <>
+    /* 2. Bọc toàn bộ các Router bên trong FavoritesProvider */
+    <FavoritesProvider>
+      <Routes>
+          {/* LUỒNG 1: GIAO DIỆN KHÁCH HÀNG */}
+          <Route element={<MainLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/product/:id" element={<ProductDetailPage />} />
+              <Route path="/category/:id" element={<CategoryPage />} />
+              <Route path="/sale" element={<SalePage/>} />
+              <Route path="/best-sellers" element={<BestSellerPage/>} />
+              <Route path="/new" element={<NewArrivalsPage/>} />
+              
+              <Route path="/account" element={<PrivateRoute><UserInfoPage /></PrivateRoute>} />
+              <Route path="/cart" element={<PrivateRoute><CartPage/></PrivateRoute>} />
+              <Route path="/wishlist" element={<PrivateRoute><WishlistPage/></PrivateRoute>} />
+              <Route path="/orders" element={<PrivateRoute><OrdersPage/></PrivateRoute>} />
+          </Route>
 
-        <Routes>
-            {/* LUỒNG 1: GIAO DIỆN KHÁCH HÀNG */}
-            <Route element={<MainLayout />}>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="/terms" element={<TermsPage />} />
-                <Route path="/privacy" element={<PrivacyPage />} />
-                <Route path="/product/:id" element={<ProductDetailPage />} />
-                <Route path="/category/:id" element={<CategoryPage />} />
-                <Route path="/sale" element={<SalePage/>} />
-                <Route path="/best-sellers" element={<BestSellerPage/>} />
-                <Route path="/new" element={<NewArrivalsPage/>} />
-                
-                <Route path="/account" element={<PrivateRoute><UserInfoPage /></PrivateRoute>} />
-                <Route path="/cart" element={<PrivateRoute><CartPage/></PrivateRoute>} />
-                <Route path="/wishlist" element={<PrivateRoute><WishlistPage/></PrivateRoute>} />
-                <Route path="/orders" element={<PrivateRoute><OrdersPage/></PrivateRoute>} />
-            </Route>
+          {/* LUỒNG 2: GIAO DIỆN ADMIN */}
+          <Route 
+            path="/admin" 
+            element={
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            }
+          >
+              <Route index element={<AdminDashboard />} />
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="orders" element={<AdminOrders />} />
+              <Route path="reviews" element={<AdminReviews />} />
+              <Route path="categories" element={<AdminCategories />} />
+          </Route>
 
-            {/* LUỒNG 2: GIAO DIỆN ADMIN */}
-            <Route 
-              path="/admin" 
-              element={
-                <AdminRoute>
-                  <AdminLayout />
-                </AdminRoute>
-              }
-            >
-                <Route index element={<AdminDashboard />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="reviews" element={<AdminReviews />} />
-                <Route path="categories" element={<AdminCategories />} />
-            </Route>
-
-            <Route path="*" element={<h1 style={{textAlign: 'center'}}>404 - Không tìm thấy trang</h1>} />
-        </Routes>
-    </>
+          <Route path="*" element={<h1 style={{textAlign: 'center'}}>404 - Không tìm thấy trang</h1>} />
+      </Routes>
+    </FavoritesProvider>
   );
 };
 

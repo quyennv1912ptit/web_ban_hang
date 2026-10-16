@@ -1,23 +1,81 @@
 import React, { useState, useEffect } from 'react';
-import { PRODUCTS } from '../data/mock';
+import { message, Spin } from 'antd'; // Thêm Spin để tạo hiệu ứng loading
+import axios from 'axios';
+import { auth } from '../config/firebase';
 import './WishlistPage.css';
 
 function WishlistPage() {
-  // Lấy tạm một vài sản phẩm làm mẫu danh sách yêu thích
-  const [wishlistItems, setWishlistItems] = useState([
-    PRODUCTS[2],
-    PRODUCTS[5],
-    PRODUCTS[8]
-  ]);
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const formatPrice = (price) => {
-    return price.toLocaleString('vi-VN') + 'đ';
+    return Number(price).toLocaleString('vi-VN') + 'đ';
   };
 
-  // Hàm xóa sản phẩm khỏi danh sách yêu thích
-  const handleRemoveFromWishlist = (id) => {
-    setWishlistItems(prev => prev.filter(item => item.id !== id));
+  // Hàm gọi API lấy danh sách yêu thích từ Backend
+  const fetchWishlist = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      const token = await user.getIdToken();
+      const res = await axios.get('http://127.0.0.1:8000/api/favorites/', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setWishlistItems(res.data);
+    } catch (error) {
+      console.error("Lỗi tải wishlist:", error);
+      message.error("Không thể tải danh sách yêu thích");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Lắng nghe đăng nhập và gọi API
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        fetchWishlist();
+      } else {
+        setWishlistItems([]);
+        setLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Xóa khỏi danh sách bằng API Toggle
+  const handleRemoveFromWishlist = async (id) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const token = await user.getIdToken();
+      await axios.post(
+        `http://127.0.0.1:8000/api/favorites/${id}/toggle`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Xóa khỏi UI ngay lập tức để người dùng không phải đợi load lại trang
+      setWishlistItems(prev => prev.filter(item => item.id !== id));
+      message.success("Đã xóa khỏi danh sách yêu thích");
+    } catch (error) {
+      console.error("Lỗi xóa wishlist:", error);
+      message.error("Lỗi khi xóa sản phẩm");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '100px 0' }}>
+        <Spin size="large" tip="Đang tải danh sách yêu thích..." />
+      </div>
+    );
+  }
 
   return (
     <div className="wishlist-page">
@@ -37,38 +95,44 @@ function WishlistPage() {
         {/* Lưới sản phẩm */}
         {wishlistItems.length > 0 ? (
           <div className="product-grid">
-            {wishlistItems.map((product) => (
-              <div key={product.id} className="product-card wishlist-card">
-                {/* Nút bỏ thích (dấu X hoặc trái tim) */}
-                <button 
-                  className="remove-wishlist-btn" 
-                  onClick={() => handleRemoveFromWishlist(product.id)}
-                  title="Bỏ thích"
-                >
-                  ✕
-                </button>
+            {wishlistItems.map((product) => {
+              // Tự động tìm link ảnh thật từ dữ liệu backend trả về
+              const imgUrl = product.images?.[0]?.original_url || product.image_url || 'https://via.placeholder.com/200';
 
-                <img src={product.image} alt={product.name} className="product-img" />
-                
-                <div className="product-info">
-                  <h3 className="product-title">{product.name}</h3>
+              return (
+                <div key={product.id} className="product-card wishlist-card">
+                  {/* Nút bỏ thích */}
+                  <button 
+                    className="remove-wishlist-btn" 
+                    onClick={() => handleRemoveFromWishlist(product.id)}
+                    title="Bỏ thích"
+                  >
+                    ✕
+                  </button>
+
+                  <img src={imgUrl} alt={product.name} className="product-img" />
                   
-                  <div>
-                    <div className="product-prices">
-                      <span className="wishlist-price">{formatPrice(product.price)}</span>
-                      {product.oldPrice && (
-                        <span className="product-old-price">{formatPrice(product.oldPrice)}</span>
-                      )}
-                    </div>
+                  <div className="product-info">
+                    <h3 className="product-title">{product.name}</h3>
+                    
+                    <div>
+                      <div className="product-prices">
+                        <span className="wishlist-price">{formatPrice(product.price)}</span>
+                        {/* Backend trả về original_price thay vì oldPrice */}
+                        {product.original_price && (
+                          <span className="product-old-price">{formatPrice(product.original_price)}</span>
+                        )}
+                      </div>
 
-                    <div className="wishlist-meta">
-                      <span className="star">★ {product.rating}</span>
-                      <button className="move-to-cart-btn">Thêm vào giỏ</button>
+                      <div className="wishlist-meta">
+                        <span className="star">★ {product.rating || "5.0"}</span>
+                        <button className="move-to-cart-btn">Thêm vào giỏ</button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="wishlist-empty">

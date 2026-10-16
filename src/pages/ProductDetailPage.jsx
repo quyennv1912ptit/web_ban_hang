@@ -4,6 +4,7 @@ import { FiMinus, FiPlus, FiShoppingCart, FiStar, FiSend } from 'react-icons/fi'
 import axios from 'axios';
 import { message } from 'antd'; 
 import { useCart } from '../contexts/CartContext'; 
+import { auth } from '../config/firebase'; 
 import './ProductDetailPage.css';
 
 const ProductDetailPage = () => {
@@ -16,10 +17,49 @@ const ProductDetailPage = () => {
     const [mainImage, setMainImage] = useState('');
     const [quantity, setQuantity] = useState(1);
     const [selectedColor, setSelectedColor] = useState('');
+    
+    // State xử lý Đánh giá sản phẩm
     const [reviews, setReviews] = useState([]);
     const [reviewContent, setReviewContent] = useState('');
     const [reviewRating, setReviewRating] = useState(5);
     const [submitting, setSubmitting] = useState(false);
+    const [userOrderId, setUserOrderId] = useState(null);
+
+    // 1. Tải danh sách đánh giá từ Backend
+    const fetchReviews = async () => {
+        try {
+            const { data } = await axios.get(`http://localhost:8000/api/products/${paramProductId}/reviews`);
+            // Backend sử dụng fastapi-pagination nên mảng nằm trong data.items
+            setReviews(data.items || data || []);
+        } catch (error) {
+            console.error("Lỗi tải danh sách đánh giá:", error);
+        }
+    };
+
+    // 2. Kiểm tra xem user hiện tại có đơn hàng đã nhận (delivered) chứa sản phẩm này không
+    const checkEligibleOrder = async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        try {
+            const token = await user.getIdToken();
+            const { data } = await axios.get('http://localhost:8000/api/orders', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const ordersList = data.items || data || [];
+            
+            // Tìm đơn hàng trạng thái 'delivered' chứa sản phẩm này
+            const eligibleOrder = ordersList.find(o => 
+                (o.status === 'delivered' || o.status === 'DELIVERED') && 
+                o.items?.some(i => String(i.product_id) === String(paramProductId))
+            );
+            
+            if (eligibleOrder) {
+                setUserOrderId(eligibleOrder.id);
+            }
+        } catch (error) {
+            console.error("Lỗi kiểm tra đơn hàng:", error);
+        }
+    };
 
     useEffect(() => {
         if (!paramProductId) return;
@@ -30,13 +70,18 @@ const ProductDetailPage = () => {
                 setProduct(data);
                 setMainImage(data.images?.[0]?.original_url || data.image_url || data.image || 'https://via.placeholder.com/600x600?text=No+Image');
                 if (data.attributes?.color?.length) setSelectedColor(data.attributes.color[0]);
-            } catch (error) { message.error("Không thể tải thông tin sản phẩm!"); } 
-            finally { setLoading(false); }
+                
+                await fetchReviews();
+                await checkEligibleOrder();
+            } catch (error) { 
+                message.error("Không thể tải thông tin sản phẩm!"); 
+            } finally { 
+                setLoading(false); 
+            }
         })();
     }, [paramProductId]);
 
     const discountPercent = useMemo(() => (!product || product.original_price <= product.price) ? 0 : Math.round((1 - product.price / product.original_price) * 100), [product]);
-    const reviewAverage = useMemo(() => (!product || !reviews.length) ? (product?.average_rating || 5) : reviews.reduce((s, r) => s + r.rating, 0) / reviews.length, [reviews, product]);
 
     const handleQuantityChange = type => setQuantity(q => type === 'decrease' ? Math.max(1, q - 1) : Math.min(product?.stock_quantity || 100, q + 1));
 
@@ -58,11 +103,65 @@ const ProductDetailPage = () => {
         } finally { setSubmitting(false); }
     };
 
-    const handleReviewSubmit = e => {
+    // 3. Xử lý Gửi Đánh Giá Thật lên Backend (Có xử lý lỗi an toàn)
+    const handleReviewSubmit = async (e) => {
         e.preventDefault();
         if (!reviewContent.trim()) return;
-        setReviews([{ id: Date.now(), userName: 'Bạn', rating: reviewRating, createdAt: 'Vừa xong', content: reviewContent.trim() }, ...reviews]);
-        setReviewContent(''); setReviewRating(5);
+
+        const user = auth.currentUser;
+        if (!user) {
+            message.warning('Vui lòng đăng nhập để gửi đánh giá!');
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+            const token = await user.getIdToken();
+            
+            // Chuẩn bị payload động (chỉ chèn order_id nếu có)
+            const payload = {
+                rating: Number(reviewRating),
+                comment: reviewContent.trim()
+            };
+            
+            if (userOrderId) {
+                payload.order_id = userOrderId;
+            }
+
+            await axios.post(
+                `http://localhost:8000/api/products/${paramProductId}/reviews`,
+                payload,
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+
+            message.success('Đã gửi đánh giá thành công! ❤️');
+            setReviewContent('');
+            setReviewRating(5);
+            
+            await fetchReviews();
+            
+            const { data } = await axios.get(`http://localhost:8000/api/products/${paramProductId}`);
+            setProduct(data);
+        } catch (error) {
+            console.error("Lỗi gửi đánh giá:", error);
+            
+            // XỬ LÝ LỖI AN TOÀN CHỐNG SẬP REACT CHILD
+            let errorMsg = 'Không thể gửi đánh giá!';
+            const detail = error?.response?.data?.detail;
+            
+            if (typeof detail === 'string') {
+                errorMsg = detail;
+            } else if (Array.isArray(detail) && detail.length > 0) {
+                // Lấy thông báo lỗi của Pydantic 422
+                errorMsg = `Lỗi dữ liệu: ${detail[0]?.msg}`;
+            }
+
+            message.error(errorMsg);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const renderStars = rating => Array.from({ length: 5 }, (_, i) => <FiStar key={i} size={16} className={i + 1 <= rating ? 'review-star review-star--filled' : 'review-star'} fill={i + 1 <= rating ? 'currentColor' : 'none'} />);
@@ -89,7 +188,7 @@ const ProductDetailPage = () => {
                 <div className="product-info">
                     <h1 className="info-title">{product.name}</h1>
                     <div className="info-meta">
-                        <div className="meta-rating"><span className="stars">★ {product.average_rating || 5}</span><span>{product.reviews_count || 0} Đánh giá</span></div>
+                        <div className="meta-rating"><span className="stars">★ {product.average_rating || 5}</span><span>{reviews.length || product.reviews_count || 0} Đánh giá</span></div>
                         <span className="divider">|</span><span className="meta-sold">Đã bán {product.sold_count || 0}</span>
                     </div>
                     <div className="info-price-box">
@@ -121,10 +220,12 @@ const ProductDetailPage = () => {
                     </div>
                 </div>
             </section>
+            
             <section className="product-details-section">
                 <h2 className="section-title">MÔ TẢ SẢN PHẨM</h2>
                 {product.description ? <div className="description-content" dangerouslySetInnerHTML={{ __html: product.description }} /> : <p>Chưa có mô tả.</p>}
             </section>
+
             <section className="product-reviews-section">
                 <h2 className="section-title">ĐÁNH GIÁ SẢN PHẨM</h2>
                 <div className="review-form-card">
@@ -140,27 +241,54 @@ const ProductDetailPage = () => {
                                 ))}
                             </div>
                         </div>
-                        <textarea value={reviewContent} onChange={e => setReviewContent(e.target.value)} rows={4} maxLength={500} placeholder="Chia sẻ cảm nhận..." required />
-                        <button type="submit" className="btn-submit-review" disabled={!reviewContent.trim()}><FiSend size={17} /> Gửi đánh giá</button>
+                        <textarea 
+                            value={reviewContent} 
+                            onChange={e => setReviewContent(e.target.value)} 
+                            rows={4} 
+                            maxLength={500} 
+                            placeholder={
+                                !auth.currentUser 
+                                    ? "Vui lòng đăng nhập để viết đánh giá..." 
+                                    : "Chia sẻ cảm nhận của bạn về sản phẩm..."
+                            } 
+                            disabled={!auth.currentUser}
+                            required 
+                        />
+                        <button 
+                            type="submit" 
+                            className="btn-submit-review" 
+                            disabled={submitting || !reviewContent.trim()}
+                        >
+                            <FiSend size={17} /> Gửi đánh giá
+                        </button>
                     </form>
                 </div>
+
                 <div className="reviews-list">
                     {reviews.map(review => (
                         <article key={review.id} className="review-item">
-                            <div className="review-item__avatar">{review.userName.charAt(0)}</div>
+                            <div className="review-item__avatar">
+                                {(review.user_name || review.userName || 'K').charAt(0).toUpperCase()}
+                            </div>
                             <div className="review-item__content">
                                 <div className="review-item__head">
-                                    <div><h3>{review.userName}</h3><div className="review-item__rating">{renderStars(review.rating)}</div></div>
-                                    <time>{review.createdAt}</time>
+                                    <div>
+                                        <h3>{review.user_name || review.userName || 'Khách hàng'}</h3>
+                                        <div className="review-item__rating">{renderStars(review.rating)}</div>
+                                    </div>
+                                    <time>
+                                        {review.created_at ? new Date(review.created_at).toLocaleDateString('vi-VN') : (review.createdAt || 'Mới đây')}
+                                    </time>
                                 </div>
-                                <p>{review.content}</p>
+                                <p>{review.comment || review.content}</p>
                             </div>
                         </article>
                     ))}
-                    {!reviews.length && <div className="review-empty">Chưa có bình luận nào.</div>}
+                    {!reviews.length && <div className="review-empty">Chưa có đánh giá nào cho sản phẩm này.</div>}
                 </div>
             </section>
         </main>
     );
 };
+
 export default ProductDetailPage;
