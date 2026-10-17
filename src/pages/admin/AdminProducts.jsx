@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Table, 
   Button, 
@@ -19,6 +19,17 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant
 import axiosClient from '../../api/axiosClient';
 import { auth } from '../../config/firebase';
 
+const PRODUCT_PAGE_SIZE = 20;
+const EMPTY_PRODUCT_FILTERS = {
+  q: '',
+  categoryId: '',
+  collection: 'all',
+  minPrice: '',
+  maxPrice: '',
+  status: 'all',
+  imageFile: null,
+};
+
 const toInputNumber = (value, fallback = null) => {
   if (value === null || value === undefined || value === '') return fallback;
 
@@ -30,6 +41,16 @@ const toInputNumber = (value, fallback = null) => {
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: PRODUCT_PAGE_SIZE,
+    total: 0,
+  });
+  const [filterDraft, setFilterDraft] = useState(EMPTY_PRODUCT_FILTERS);
+  const [filters, setFilters] = useState(EMPTY_PRODUCT_FILTERS);
+  const [filterError, setFilterError] = useState('');
+  const imageSearchInputRef = useRef(null);
+  const [imageSearchPreview, setImageSearchPreview] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
@@ -54,31 +75,130 @@ const AdminProducts = () => {
     }
   };
 
-  // Tải dữ liệu Sản phẩm & Danh mục từ Backend
-  const fetchData = async () => {
+  // Tải một trang dữ liệu sản phẩm theo tiêu chí tìm kiếm/lọc.
+  const fetchData = async (page = 1, pageSize = PRODUCT_PAGE_SIZE, criteria = filters) => {
     setLoading(true);
     try {
       const headers = await getAuthHeader();
-      
-      const [resProducts, resCategories] = await Promise.all([
-        axiosClient.get('/admin/products', { headers }),
-        axiosClient.get('/admin/categories', { headers })
-      ]);
+      const params = { page, size: pageSize };
+      if (criteria.q) params.q = criteria.q;
+      if (criteria.categoryId) params.category_id = Number(criteria.categoryId);
+      if (criteria.minPrice !== '') params.min_price = Number(criteria.minPrice);
+      if (criteria.maxPrice !== '') params.max_price = Number(criteria.maxPrice);
+      if (criteria.collection === 'sale') params.on_sale = true;
+      if (criteria.collection === 'best_selling') params.sort = 'best_selling';
+      if (criteria.collection === 'newest') params.sort = 'newest';
+      if (criteria.status === 'active') params.is_active = true;
+      if (criteria.status === 'inactive') params.is_active = false;
 
-      // Hỗ trợ cấu trúc trả về phân trang (Page[Product]) hoặc mảng thông thường
-      setProducts(resProducts.data?.items || resProducts.data || []);
-      setCategories(resCategories.data?.items || resCategories.data || []);
+      let response;
+      if (criteria.imageFile) {
+        const formData = new FormData();
+        formData.append('file', criteria.imageFile);
+        if (criteria.q) formData.append('q', criteria.q);
+        response = await axiosClient.post('/admin/products/search/image', formData, { headers, params });
+      } else {
+        response = await axiosClient.get('/admin/products', { headers, params });
+      }
+
+      // Backend trả Page[ProductRead], nên dùng total để phân trang trên server.
+      const data = response.data;
+      const items = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+          ? data
+          : [];
+      setProducts(items);
+      setPagination({
+        current: Number(data?.page || page),
+        pageSize: Number(data?.size || pageSize),
+        total: Number(data?.total ?? items.length),
+      });
     } catch (error) {
       console.error("Lỗi tải dữ liệu:", error);
-      message.error("Không thể tải danh sách sản phẩm hoặc danh mục!");
+      message.error("Không thể tải danh sách sản phẩm!");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    if (!filterDraft.imageFile) {
+      setImageSearchPreview('');
+      return undefined;
+    }
+
+    const preview = URL.createObjectURL(filterDraft.imageFile);
+    setImageSearchPreview(preview);
+    return () => URL.revokeObjectURL(preview);
+  }, [filterDraft.imageFile]);
+
+  useEffect(() => {
+    fetchData(1, PRODUCT_PAGE_SIZE);
+
+    const fetchCategories = async () => {
+      try {
+        const headers = await getAuthHeader();
+        const response = await axiosClient.get('/admin/categories', { headers });
+        setCategories(response.data?.items || response.data || []);
+      } catch (error) {
+        console.error('Lỗi tải danh mục:', error);
+      }
+    };
+
+    fetchCategories();
   }, []);
+
+  const handleApplyFilters = (event) => {
+    event.preventDefault();
+    const minPrice = filterDraft.minPrice === '' ? null : Number(filterDraft.minPrice);
+    const maxPrice = filterDraft.maxPrice === '' ? null : Number(filterDraft.maxPrice);
+
+    if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) {
+      setFilterError('Giá tối thiểu không được lớn hơn giá tối đa.');
+      return;
+    }
+
+    const nextFilters = { ...filterDraft, q: filterDraft.q.trim() };
+    setFilterError('');
+    setFilters(nextFilters);
+    setPagination((current) => ({ ...current, current: 1 }));
+    fetchData(1, pagination.pageSize, nextFilters);
+  };
+
+  const handleClearFilters = () => {
+    const clearedFilters = { ...EMPTY_PRODUCT_FILTERS, q: filterDraft.q };
+    setFilterDraft(clearedFilters);
+    setFilterError('');
+    setFilters(clearedFilters);
+    setPagination((current) => ({ ...current, current: 1 }));
+    fetchData(1, pagination.pageSize, clearedFilters);
+  };
+
+  const handleSelectSearchImage = (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      message.error('Ảnh tìm kiếm cần có định dạng JPEG, PNG hoặc WEBP.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      message.error('Ảnh tìm kiếm không được vượt quá 10MB.');
+      return;
+    }
+    setFilterDraft((current) => ({ ...current, imageFile: file }));
+  };
+
+  const handleRemoveSearchImage = () => {
+    setFilterDraft((current) => ({ ...current, imageFile: null }));
+    if (filters.imageFile) {
+      const nextFilters = { ...filters, imageFile: null };
+      setFilters(nextFilters);
+      setPagination((current) => ({ ...current, current: 1 }));
+      fetchData(1, pagination.pageSize, nextFilters);
+    }
+  };
 
   // Mở Modal (Thêm / Sửa sản phẩm)
   const handleOpenModal = (product = null) => {
@@ -178,7 +298,7 @@ const AdminProducts = () => {
       }
 
       handleCloseModal();
-      fetchData(); 
+      fetchData(editingProduct ? pagination.current : 1, pagination.pageSize);
     } catch (error) {
       console.error("Chi tiết lỗi từ Backend:", error.response?.data);
       const detail = error.response?.data?.detail;
@@ -198,7 +318,9 @@ const AdminProducts = () => {
       const headers = await getAuthHeader();
       await axiosClient.delete(`/admin/products/${id}`, { headers });
       message.success('Đã xóa sản phẩm!');
-      fetchData();
+      const nextTotal = Math.max(0, pagination.total - 1);
+      const lastPageAfterDelete = Math.max(1, Math.ceil(nextTotal / pagination.pageSize));
+      fetchData(Math.min(pagination.current, lastPageAfterDelete), pagination.pageSize);
     } catch (error) {
       console.error("Lỗi xóa sản phẩm:", error);
       message.error('Không thể xóa sản phẩm này!');
@@ -309,7 +431,7 @@ const AdminProducts = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
         <h2>Quản lý Sản Phẩm</h2>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchData(pagination.current, pagination.pageSize)} loading={loading}>
             Làm mới
           </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal(null)}>
@@ -318,12 +440,139 @@ const AdminProducts = () => {
         </Space>
       </div>
 
+      <form
+        onSubmit={handleApplyFilters}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: 12,
+          alignItems: 'end',
+          marginBottom: 16,
+          padding: 16,
+          border: '1px solid #f0f0f0',
+          borderRadius: 8,
+          background: '#fafafa',
+        }}
+      >
+        <div>
+          <label htmlFor="admin-product-search" style={{ display: 'block', marginBottom: 6 }}>Tìm theo tên</label>
+          <Input
+            id="admin-product-search"
+            value={filterDraft.q}
+            onChange={(event) => setFilterDraft((current) => ({ ...current, q: event.target.value }))}
+            placeholder="Nhập tên sản phẩm..."
+            allowClear
+          />
+        </div>
+
+        <div>
+          <label htmlFor="admin-product-category" style={{ display: 'block', marginBottom: 6 }}>Danh mục</label>
+          <Select
+            id="admin-product-category"
+            value={filterDraft.categoryId || undefined}
+            onChange={(value) => setFilterDraft((current) => ({ ...current, categoryId: value || '' }))}
+            placeholder="Tất cả danh mục"
+            allowClear
+            style={{ width: '100%' }}
+          >
+            {categories.map((category) => (
+              <Select.Option key={category.id} value={String(category.id)}>{category.name}</Select.Option>
+            ))}
+          </Select>
+        </div>
+
+        <div>
+          <label htmlFor="admin-product-collection" style={{ display: 'block', marginBottom: 6 }}>Bộ lọc sản phẩm</label>
+          <Select
+            id="admin-product-collection"
+            value={filterDraft.collection}
+            onChange={(value) => setFilterDraft((current) => ({ ...current, collection: value }))}
+            style={{ width: '100%' }}
+          >
+            <Select.Option value="all">Tất cả sản phẩm</Select.Option>
+            <Select.Option value="sale">Khuyến mãi</Select.Option>
+            <Select.Option value="best_selling">Bán chạy</Select.Option>
+            <Select.Option value="newest">Hàng mới về</Select.Option>
+          </Select>
+        </div>
+
+        <div>
+          <label htmlFor="admin-product-min-price" style={{ display: 'block', marginBottom: 6 }}>Giá tối thiểu</label>
+          <InputNumber
+            id="admin-product-min-price"
+            min={0}
+            precision={0}
+            value={filterDraft.minPrice === '' ? null : Number(filterDraft.minPrice)}
+            onChange={(value) => setFilterDraft((current) => ({ ...current, minPrice: value == null ? '' : String(value) }))}
+            placeholder="Từ giá"
+            style={{ width: '100%' }}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="admin-product-max-price" style={{ display: 'block', marginBottom: 6 }}>Giá tối đa</label>
+          <InputNumber
+            id="admin-product-max-price"
+            min={0}
+            precision={0}
+            value={filterDraft.maxPrice === '' ? null : Number(filterDraft.maxPrice)}
+            onChange={(value) => setFilterDraft((current) => ({ ...current, maxPrice: value == null ? '' : String(value) }))}
+            placeholder="Đến giá"
+            style={{ width: '100%' }}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="admin-product-status" style={{ display: 'block', marginBottom: 6 }}>Trạng thái</label>
+          <Select
+            id="admin-product-status"
+            value={filterDraft.status}
+            onChange={(value) => setFilterDraft((current) => ({ ...current, status: value }))}
+            style={{ width: '100%' }}
+          >
+            <Select.Option value="all">Mọi trạng thái</Select.Option>
+            <Select.Option value="active">Đang bán</Select.Option>
+            <Select.Option value="inactive">Đang ẩn</Select.Option>
+          </Select>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            ref={imageSearchInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleSelectSearchImage}
+            hidden
+          />
+          <Button htmlType="button" onClick={() => imageSearchInputRef.current?.click()}>
+            Chọn ảnh
+          </Button>
+          {imageSearchPreview && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Image src={imageSearchPreview} alt="Ảnh tìm kiếm sản phẩm" width={36} height={36} style={{ objectFit: 'cover', borderRadius: 4 }} />
+              <Button htmlType="button" size="small" onClick={handleRemoveSearchImage}>Bỏ ảnh</Button>
+            </span>
+          )}
+          <Button type="primary" htmlType="submit" loading={loading}>Tìm kiếm / Lọc</Button>
+          <Button htmlType="button" onClick={handleClearFilters}>Xóa lọc</Button>
+        </div>
+        {filterError && <div role="alert" style={{ gridColumn: '1 / -1', color: '#cf1322' }}>{filterError}</div>}
+      </form>
+
       <Table 
         columns={columns} 
         dataSource={products} 
         rowKey="id" 
         loading={loading}
-        pagination={{ pageSize: 8 }}
+        pagination={{
+          current: pagination.current,
+          pageSize: pagination.pageSize,
+          total: pagination.total,
+          showSizeChanger: pagination.total > 10,
+          pageSizeOptions: ['10', '20', '50'],
+          showTotal: (total) => `Tổng ${total} sản phẩm`,
+          onChange: (page, pageSize) => fetchData(page, pageSize, filters),
+        }}
       />
 
       <Modal
