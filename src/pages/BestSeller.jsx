@@ -8,8 +8,8 @@ const BestSellerPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // 1. Thêm State để lưu danh mục đang chọn
-    const [filterCategory, setFilterCategory] = useState('all');
+    // State lưu kiểu sắp xếp (mặc định, tăng dần, giảm dần)
+    const [sortOrder, setSortOrder] = useState('default');
 
     useEffect(() => {
         const fetchBestSellers = async () => {
@@ -28,23 +28,19 @@ const BestSellerPage = () => {
         fetchBestSellers();
     }, []);
 
-    // 2. Logic lọc sản phẩm theo danh mục ngay trên Frontend
-    const filteredProducts = useMemo(() => {
-        if (filterCategory === 'all') return products;
+    // Logic sắp xếp giá ngay trên Frontend
+    const displayedProducts = useMemo(() => {
+        // Tạo một bản sao của mảng để không làm hỏng dữ liệu gốc
+        let result = [...products];
 
-        return products.filter(product => {
-            // Lấy tên danh mục của sản phẩm (hỗ trợ nhiều format trường dữ liệu từ backend)
-            const catName = (product.category?.name || product.category_name || product.ten_danh_muc || '').toLowerCase();
+        if (sortOrder === 'price_asc') {
+            result.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+        } else if (sortOrder === 'price_desc') {
+            result.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+        }
 
-            if (filterCategory === 'fashion') {
-                return catName.includes('thời trang') || catName.includes('áo') || catName.includes('quần') || catName.includes('giày') || catName.includes('túi');
-            }
-            if (filterCategory === 'tech') {
-                return catName.includes('công nghệ') || catName.includes('điện thoại') || catName.includes('máy tính') || catName.includes('laptop') || catName.includes('điện tử');
-            }
-            return true;
-        });
-    }, [products, filterCategory]);
+        return result;
+    }, [products, sortOrder]);
 
     if (loading) {
         return <div className="category-page flex justify-center items-center h-64"><h3>Đang tải danh sách bán chạy...</h3></div>;
@@ -58,31 +54,31 @@ const BestSellerPage = () => {
         <div className="category-page">
             <div className="category-container">
                 
-                {/* Header trang */}
                 <div className="category-header">
                     <h2>🏆 Top Sản Phẩm Bán Chạy Nhất 🏆</h2>
-                    {/* 3. Gắn State và sự kiện onChange vào thẻ select */}
-                    <select 
-                        className="category-select"
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                    >
-                        <option value="all">Tất cả danh mục</option>
-                        <option value="fashion">Thời trang</option>
-                        <option value="tech">Công nghệ</option>
-                    </select>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
+                        <select 
+                            className="category-select"
+                            value={sortOrder}
+                            onChange={(e) => setSortOrder(e.target.value)}
+                        >
+                            <option value="default">Sắp xếp mặc định</option>
+                            <option value="price_asc">Giá: Thấp đến Cao (Tăng dần)</option>
+                            <option value="price_desc">Giá: Cao đến Thấp (Giảm dần)</option>
+                        </select>
+                    </div>
                 </div>
 
-                {/* 4. Map dữ liệu từ mảng đã lọc (filteredProducts) */}
-                {filteredProducts.length > 0 ? (
+                {displayedProducts.length > 0 ? (
                     <div className="product-grid">
-                        {filteredProducts.map((product, index) => (
+                        {displayedProducts.map((product, index) => (
                             <ProductCard key={product.id} product={product} priority={index === 0} />
                         ))}
                     </div>
                 ) : (
                     <div className="empty-state">
-                        <h3>Hiện tại chưa có sản phẩm bán chạy nào trong mục này.</h3>
+                        <h3>Hiện tại chưa có sản phẩm nào.</h3>
                     </div>
                 )}
             </div>
