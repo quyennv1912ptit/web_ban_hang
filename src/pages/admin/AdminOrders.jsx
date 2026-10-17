@@ -1,7 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Tag, Select, message, Card } from 'antd';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient';
 import { auth } from '../../config/firebase';
+
+const STATUS_TRANSITIONS = {
+  pending: [
+    { value: 'processing', label: 'Đang xử lý' },
+    { value: 'cancelled', label: 'Đã hủy' },
+  ],
+  processing: [
+    { value: 'shipped', label: 'Đang giao' },
+    { value: 'cancelled', label: 'Đã hủy' },
+  ],
+  shipped: [
+    { value: 'delivered', label: 'Đã giao' },
+    { value: 'returned', label: 'Đã hoàn hàng' },
+  ],
+  delivered: [{ value: 'returned', label: 'Đã hoàn hàng' }],
+};
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -14,7 +30,7 @@ const AdminOrders = () => {
       if (!user) return;
       const token = await user.getIdToken();
 
-      const res = await axios.get('http://127.0.0.1:8000/api/admin/orders', {
+      const res = await axiosClient.get('/admin/orders', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -40,7 +56,7 @@ const AdminOrders = () => {
       const token = await user.getIdToken();
 
       // Gửi giá trị in hoa khớp với chuẩn Enum của Pydantic backend
-      await axios.patch(`http://127.0.0.1:8000/api/admin/orders/${orderId}/status`, {
+      await axiosClient.patch(`/admin/orders/${orderId}/status`, {
         status: newStatus
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -74,9 +90,11 @@ const AdminOrders = () => {
       render: (status) => {
         let color = 'gold';
         const stt = status ? status.toLowerCase() : '';
+        if (stt === 'processing') color = 'cyan';
+        if (stt === 'shipped') color = 'blue';
         if (stt === 'delivered') color = 'green';
         if (stt === 'cancelled') color = 'red';
-        if (stt === 'shipping') color = 'blue';
+        if (stt === 'returned') color = 'purple';
         return <Tag color={color}>{status ? status.toUpperCase() : 'PENDING'}</Tag>;
       }
     },
@@ -85,15 +103,12 @@ const AdminOrders = () => {
       key: 'action',
       render: (_, record) => (
         <Select
-          defaultValue={record.status || 'pending'}
+          value={record.status || 'pending'}
           style={{ width: 140 }}
           onChange={(value) => handleStatusChange(record.id, value)}
           options={[
-            { value: 'pending', label: 'Chờ xử lý' },
-            { value: 'processing', label: 'Đang xử lý' },
-            { value: 'shipped', label: 'Đang giao' },
-            { value: 'delivered', label: 'Đã giao' },
-            { value: 'cancelled', label: 'Đã hủy' }
+            { value: record.status, label: 'Giữ nguyên' },
+            ...(STATUS_TRANSITIONS[record.status] || []),
           ]}
         />
       ),

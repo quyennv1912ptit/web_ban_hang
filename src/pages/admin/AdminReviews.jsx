@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Popconfirm, message, Card, Rate } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient';
 import { auth } from '../../config/firebase';
 
 const AdminReviews = () => {
@@ -15,7 +15,7 @@ const AdminReviews = () => {
       if (!user) return;
       const token = await user.getIdToken();
 
-      const res = await axios.get('http://127.0.0.1:8000/api/admin/reviews', {
+      const res = await axiosClient.get('/admin/reviews', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -40,7 +40,7 @@ const AdminReviews = () => {
       const user = auth.currentUser;
       const token = await user.getIdToken();
 
-      await axios.delete(`http://127.0.0.1:8000/api/admin/reviews/${reviewId}`, {
+      await axiosClient.delete(`/admin/reviews/${reviewId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

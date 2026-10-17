@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FiMinus, FiPlus, FiShoppingCart, FiStar, FiSend } from 'react-icons/fi';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import { message } from 'antd'; 
 import { useCart } from '../contexts/CartContext'; 
 import { auth } from '../config/firebase'; 
@@ -28,7 +28,7 @@ const ProductDetailPage = () => {
     // 1. Tải danh sách đánh giá từ Backend
     const fetchReviews = async () => {
         try {
-            const { data } = await axios.get(`http://localhost:8000/api/products/${paramProductId}/reviews`);
+            const { data } = await axiosClient.get(`/products/${paramProductId}/reviews`);
             // Backend sử dụng fastapi-pagination nên mảng nằm trong data.items
             setReviews(data.items || data || []);
         } catch (error) {
@@ -38,19 +38,30 @@ const ProductDetailPage = () => {
 
     // 2. Kiểm tra xem user hiện tại có đơn hàng đã nhận (delivered) chứa sản phẩm này không
     const checkEligibleOrder = async () => {
+        setUserOrderId(null);
         const user = auth.currentUser;
         if (!user) return;
         try {
             const token = await user.getIdToken();
-            const { data } = await axios.get('http://localhost:8000/api/orders', {
-                headers: { Authorization: `Bearer ${token}` }
+            const { data } = await axiosClient.get('/orders/', {
+                params: { status: 'delivered', size: 100 },
+                headers: { Authorization: `Bearer ${token}` },
             });
-            const ordersList = data.items || data || [];
-            
-            // Tìm đơn hàng trạng thái 'delivered' chứa sản phẩm này
-            const eligibleOrder = ordersList.find(o => 
-                (o.status === 'delivered' || o.status === 'DELIVERED') && 
-                o.items?.some(i => String(i.product_id) === String(paramProductId))
+            const ordersList = data.items || [];
+            const orderDetails = await Promise.all(ordersList.map(async (order) => {
+                try {
+                    const detail = await axiosClient.get(`/orders/${order.id}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    return detail.data;
+                } catch (error) {
+                    console.warn(`Không tải được đơn hàng ${order.id}:`, error);
+                    return null;
+                }
+            }));
+
+            const eligibleOrder = orderDetails.find(order =>
+                order?.items?.some(item => String(item.product_id) === String(paramProductId))
             );
             
             if (eligibleOrder) {
@@ -66,14 +77,14 @@ const ProductDetailPage = () => {
         (async () => {
             try {
                 setLoading(true);
-                const { data } = await axios.get(`http://localhost:8000/api/products/${paramProductId}`);
+                const { data } = await axiosClient.get(`/products/${paramProductId}`);
                 setProduct(data);
-                setMainImage(data.images?.[0]?.original_url || data.image_url || data.image || 'https://via.placeholder.com/600x600?text=No+Image');
+                setMainImage(data.images?.[0]?.image_url || data.image_url || data.image || 'https://via.placeholder.com/600x600?text=No+Image');
                 if (data.attributes?.color?.length) setSelectedColor(data.attributes.color[0]);
                 
                 await fetchReviews();
                 await checkEligibleOrder();
-            } catch (error) { 
+            } catch {
                 message.error("Không thể tải thông tin sản phẩm!"); 
             } finally { 
                 setLoading(false); 
@@ -83,19 +94,23 @@ const ProductDetailPage = () => {
 
     const discountPercent = useMemo(() => (!product || product.original_price <= product.price) ? 0 : Math.round((1 - product.price / product.original_price) * 100), [product]);
 
-    const handleQuantityChange = type => setQuantity(q => type === 'decrease' ? Math.max(1, q - 1) : Math.min(product?.stock_quantity || 100, q + 1));
+    const handleQuantityChange = type => setQuantity(q => type === 'decrease'
+        ? Math.max(1, q - 1)
+        : Math.min(Number(product?.stock_quantity ?? 0), q + 1));
 
     const handleAction = async (isBuyNow) => {
         const idToBuy = product?.id || paramProductId;
         if (!idToBuy) return;
+        if (Number(product?.stock_quantity ?? 0) < 1) {
+            message.warning('Sản phẩm hiện đã hết hàng.');
+            return;
+        }
         try {
             setSubmitting(true);
             await addToCart(idToBuy, quantity);
             if (isBuyNow) {
                 if (typeof fetchCart === 'function') await fetchCart();
                 navigate('/cart', { state: { buyNowId: String(idToBuy), buyNow: true } });
-            } else {
-                message.success(`Đã thêm ${quantity} sản phẩm vào giỏ!`);
             }
         } catch (error) {
             if (error?.response?.status === 401) { message.warning('Vui lòng đăng nhập!'); navigate('/login'); } 
@@ -107,6 +122,10 @@ const ProductDetailPage = () => {
     const handleReviewSubmit = async (e) => {
         e.preventDefault();
         if (!reviewContent.trim()) return;
+        if (!userOrderId) {
+            message.warning('Bạn cần mua và nhận sản phẩm này để có thể đánh giá.');
+            return;
+        }
 
         const user = auth.currentUser;
         if (!user) {
@@ -128,8 +147,8 @@ const ProductDetailPage = () => {
                 payload.order_id = userOrderId;
             }
 
-            await axios.post(
-                `http://localhost:8000/api/products/${paramProductId}/reviews`,
+            await axiosClient.post(
+                `/products/${paramProductId}/reviews`,
                 payload,
                 {
                     headers: { Authorization: `Bearer ${token}` }
@@ -142,7 +161,7 @@ const ProductDetailPage = () => {
             
             await fetchReviews();
             
-            const { data } = await axios.get(`http://localhost:8000/api/products/${paramProductId}`);
+            const { data } = await axiosClient.get(`/products/${paramProductId}`);
             setProduct(data);
         } catch (error) {
             console.error("Lỗi gửi đánh giá:", error);
@@ -172,7 +191,7 @@ const ProductDetailPage = () => {
     return (
         <main className="product-page">
             <nav className="product-breadcrumb">
-                <Link to="/">Trang chủ</Link> › <Link to={`/category/${product.category?.slug}`}>{product.category?.name || 'Danh mục'}</Link> › <span>{product.name}</span>
+                <Link to="/">Trang chủ</Link> › <Link to={product.category?.id ? `/category/${product.category.id}` : '/'}>{product.category?.name || 'Danh mục'}</Link> › <span>{product.name}</span>
             </nav>
             <section className="product-main">
                 <div className="product-gallery">
@@ -180,7 +199,7 @@ const ProductDetailPage = () => {
                     {product.images?.length > 0 && (
                         <div className="gallery-thumbnails">
                             {product.images.map((img, i) => (
-                                <button key={img.id || i} type="button" className={`thumbnail ${mainImage === img.original_url ? 'active' : ''}`} onClick={() => setMainImage(img.original_url)}><img src={img.original_url} alt="thumb" /></button>
+                                <button key={img.id || i} type="button" className={`thumbnail ${mainImage === img.image_url ? 'active' : ''}`} onClick={() => setMainImage(img.image_url)}><img src={img.image_url} alt="thumb" /></button>
                             ))}
                         </div>
                     )}
@@ -210,20 +229,20 @@ const ProductDetailPage = () => {
                         <div className="qty-control">
                             <button type="button" onClick={() => handleQuantityChange('decrease')} disabled={quantity <= 1}><FiMinus size={15} /></button>
                             <input type="number" value={quantity} readOnly />
-                            <button type="button" onClick={() => handleQuantityChange('increase')} disabled={quantity >= (product.stock_quantity || 100)}><FiPlus size={15} /></button>
+                            <button type="button" onClick={() => handleQuantityChange('increase')} disabled={quantity >= Number(product.stock_quantity ?? 0)}><FiPlus size={15} /></button>
                         </div>
-                        <span className="stock-text">{product.stock_quantity || 'Sẵn sàng giao'} có sẵn</span>
+                        <span className="stock-text">{product.stock_quantity} có sẵn</span>
                     </div>
                     <div className="info-actions">
-                        <button type="button" className="btn-add-cart" onClick={() => handleAction(false)} disabled={submitting}><FiShoppingCart size={18} /><span>Thêm vào giỏ hàng</span></button>
-                        <button type="button" className="btn-buy-now" onClick={() => handleAction(true)} disabled={submitting}>Mua ngay</button>
+                        <button type="button" className="btn-add-cart" onClick={() => handleAction(false)} disabled={submitting || Number(product.stock_quantity ?? 0) < 1}><FiShoppingCart size={18} /><span>Thêm vào giỏ hàng</span></button>
+                        <button type="button" className="btn-buy-now" onClick={() => handleAction(true)} disabled={submitting || Number(product.stock_quantity ?? 0) < 1}>Mua ngay</button>
                     </div>
                 </div>
             </section>
             
             <section className="product-details-section">
                 <h2 className="section-title">MÔ TẢ SẢN PHẨM</h2>
-                {product.description ? <div className="description-content" dangerouslySetInnerHTML={{ __html: product.description }} /> : <p>Chưa có mô tả.</p>}
+                {product.description ? <div className="description-content">{product.description}</div> : <p>Chưa có mô tả.</p>}
             </section>
 
             <section className="product-reviews-section">
@@ -246,18 +265,19 @@ const ProductDetailPage = () => {
                             onChange={e => setReviewContent(e.target.value)} 
                             rows={4} 
                             maxLength={500} 
-                            placeholder={
-                                !auth.currentUser 
-                                    ? "Vui lòng đăng nhập để viết đánh giá..." 
+                            placeholder={!auth.currentUser
+                                ? "Vui lòng đăng nhập để viết đánh giá..."
+                                : !userOrderId
+                                    ? "Bạn cần mua và nhận sản phẩm này để đánh giá..."
                                     : "Chia sẻ cảm nhận của bạn về sản phẩm..."
-                            } 
-                            disabled={!auth.currentUser}
+                            }
+                            disabled={!auth.currentUser || !userOrderId}
                             required 
                         />
                         <button 
                             type="submit" 
                             className="btn-submit-review" 
-                            disabled={submitting || !reviewContent.trim()}
+                            disabled={submitting || !reviewContent.trim() || !userOrderId}
                         >
                             <FiSend size={17} /> Gửi đánh giá
                         </button>

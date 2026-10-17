@@ -1,9 +1,9 @@
 import axiosClient from "./axiosClient";
 
 const cartApi = {
-    // Gọi API POST /api/cart/items của FastAPI
+    // Gọi API POST /api/cart/ của backend
     addItem(data) {
-        return axiosClient.post('/cart/items', data);
+        return axiosClient.post('/cart/', data);
     }
 };
 

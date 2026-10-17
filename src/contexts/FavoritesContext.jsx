@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import { auth } from '../config/firebase'; // Chỉnh đường dẫn tới firebase của ông
 
 const FavoritesContext = createContext();
@@ -17,15 +17,16 @@ export const FavoritesProvider = ({ children }) => {
       return;
     }
     try {
+      setLoading(true);
       const token = await user.getIdToken();
-      const res = await axios.get('http://127.0.0.1:8000/api/favorites/', {
+      const res = await axiosClient.get('/users/favorites', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // Trích xuất mảng chứa các ID đã thích
-      const ids = res.data.map(item => item.id);
+      const ids = (Array.isArray(res.data) ? res.data : []).map(item => String(item.product_id));
       setFavoriteIds(ids);
     } catch (error) {
       console.error("Lỗi tải danh sách yêu thích:", error);
+      setFavoriteIds([]);
     } finally {
       setLoading(false);
     }
@@ -48,30 +49,35 @@ export const FavoritesProvider = ({ children }) => {
     const user = auth.currentUser;
     if (!user) return false;
 
-    const isFavorited = favoriteIds.includes(productId);
+    const normalizedId = String(productId);
+    const isFavorited = favoriteIds.includes(normalizedId);
 
     // 1. Đổi màu trái tim ngay lập tức không cần đợi API
     if (isFavorited) {
-      setFavoriteIds(prev => prev.filter(id => id !== productId));
+      setFavoriteIds(prev => prev.filter(id => id !== normalizedId));
     } else {
-      setFavoriteIds(prev => [...prev, productId]);
+      setFavoriteIds(prev => [...prev, normalizedId]);
     }
 
     try {
       // 2. Bắn API xuống backend
       const token = await user.getIdToken();
-      const res = await axios.post(
-        `http://127.0.0.1:8000/api/favorites/${productId}/toggle`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return res.data.is_favorited;
+      if (isFavorited) {
+        await axiosClient.delete(`/users/favorites/${normalizedId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        await axiosClient.post(`/users/favorites/${normalizedId}`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      return !isFavorited;
     } catch (error) {
       // Nếu API lỗi -> Hoàn tác lại trạng thái cũ
       if (isFavorited) {
-        setFavoriteIds(prev => [...prev, productId]);
+        setFavoriteIds(prev => [...prev, normalizedId]);
       } else {
-        setFavoriteIds(prev => prev.filter(id => id !== productId));
+        setFavoriteIds(prev => prev.filter(id => id !== normalizedId));
       }
       throw error;
     }

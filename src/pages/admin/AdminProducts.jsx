@@ -16,8 +16,16 @@ import {
   Upload 
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient';
 import { auth } from '../../config/firebase';
+
+const toInputNumber = (value, fallback = null) => {
+  if (value === null || value === undefined || value === '') return fallback;
+
+  // Decimal fields from the API may be JSON strings (for example, "8832705").
+  const parsed = Number(typeof value === 'string' ? value.replace(/[，,\s]/g, '') : value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
@@ -53,8 +61,8 @@ const AdminProducts = () => {
       const headers = await getAuthHeader();
       
       const [resProducts, resCategories] = await Promise.all([
-        axios.get('http://127.0.0.1:8000/api/admin/products', { headers }),
-        axios.get('http://127.0.0.1:8000/api/admin/categories', { headers })
+        axiosClient.get('/admin/products', { headers }),
+        axiosClient.get('/admin/categories', { headers })
       ]);
 
       // Hỗ trợ cấu trúc trả về phân trang (Page[Product]) hoặc mảng thông thường
@@ -82,13 +90,23 @@ const AdminProducts = () => {
       if (product) {
         form.setFieldsValue({
           name: product.name || '',
-          price: product.price || 0,
-          original_price: product.original_price || null,
+          price: toInputNumber(product.price, 0),
+          original_price: toInputNumber(product.original_price),
           // Đọc đúng biến stock_quantity từ backend
-          stock: product.stock_quantity ?? product.stock ?? 0,
-          category_id: product.category_id || null,
+          stock_quantity: product.stock_quantity ?? 0,
+          category_id: product.category_id ?? null,
           description: product.description || '',
+          sku: product.sku || '',
+          weight_grams: product.weight_grams ?? null,
           is_active: product.is_active ?? true,
+          attribute_entries: Object.entries(
+            product.attributes && typeof product.attributes === 'object' && !Array.isArray(product.attributes)
+              ? product.attributes
+              : {}
+          ).map(([key, value]) => ({
+            key,
+            value: typeof value === 'string' ? value : JSON.stringify(value),
+          })),
         });
       } else {
         form.resetFields();
@@ -103,14 +121,6 @@ const AdminProducts = () => {
     setFileList([]);
   };
 
-  // Tự động sinh slug chuẩn từ tên tiếng Việt
-  const generateSlug = (text) => {
-    return text.toString().toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
-      .replace(/[^a-z0-9]+/g, "-") 
-      .replace(/^-+|-+$/g, ""); 
-  };
-
   // Submit Form: Lưu thông tin chữ -> Lấy ID -> Upload ảnh lên Backend/Cloud
   const handleSubmit = async (values) => {
     setSubmitting(true);
@@ -118,13 +128,19 @@ const AdminProducts = () => {
       const headers = await getAuthHeader();
       
       const payload = {
-        name: values.name,
-        slug: generateSlug(values.name), 
+        name: values.name.trim(),
         price: Number(values.price),
-        original_price: values.original_price ? Number(values.original_price) : null,
-        stock_quantity: Number(values.stock || 0), // Khớp chuẩn Pydantic schema
+        original_price: values.original_price == null ? null : Number(values.original_price),
+        stock_quantity: Number(values.stock_quantity ?? 0),
         category_id: values.category_id ? Number(values.category_id) : null,
-        description: values.description || '',
+        description: values.description?.trim() || null,
+        sku: values.sku?.trim() || null,
+        weight_grams: values.weight_grams == null ? null : Number(values.weight_grams),
+        attributes: Object.fromEntries(
+          (values.attribute_entries || [])
+            .map(({ key, value }) => [key.trim(), value.trim()])
+            .filter(([key]) => key)
+        ),
         is_active: values.is_active ?? true,
       };
 
@@ -132,15 +148,15 @@ const AdminProducts = () => {
 
       // BƯỚC 1: Tạo mới hoặc Cập nhật thông tin cơ bản
       if (editingProduct) {
-        await axios.put(
-          `http://127.0.0.1:8000/api/admin/products/${productId}`,
+        await axiosClient.put(
+          `/admin/products/${productId}`,
           payload,
           { headers }
         );
         message.success('Cập nhật sản phẩm thành công!');
       } else {
-        const res = await axios.post(
-          'http://127.0.0.1:8000/api/admin/products',
+        const res = await axiosClient.post(
+          '/admin/products',
           payload,
           { headers }
         );
@@ -153,8 +169,8 @@ const AdminProducts = () => {
         const formData = new FormData();
         formData.append('file', fileList[0].originFileObj);
 
-        await axios.post(
-          `http://127.0.0.1:8000/api/admin/products/${productId}/images`,
+        await axiosClient.post(
+          `/admin/products/${productId}/images`,
           formData,
           { headers } // Giữ nguyên headers xác thực, để axios tự động xử lý multipart boundary
         );
@@ -180,7 +196,7 @@ const AdminProducts = () => {
   const handleDelete = async (id) => {
     try {
       const headers = await getAuthHeader();
-      await axios.delete(`http://127.0.0.1:8000/api/admin/products/${id}`, { headers });
+      await axiosClient.delete(`/admin/products/${id}`, { headers });
       message.success('Đã xóa sản phẩm!');
       fetchData();
     } catch (error) {
@@ -196,8 +212,8 @@ const AdminProducts = () => {
       key: 'images',
       width: 80,
       render: (images) => {
-        // Lấy đúng trường original_url từ bảng ProductImage của backend
-        const imgUrl = images?.[0]?.original_url || 'https://via.placeholder.com/60';
+        // Lấy URL ảnh theo schema ProductImageRead của backend
+        const imgUrl = images?.[0]?.image_url || 'https://via.placeholder.com/60';
         return <Image src={imgUrl} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 4 }} alt="" />;
       }
     },
@@ -223,10 +239,22 @@ const AdminProducts = () => {
       render: (val) => `${Number(val).toLocaleString('vi-VN')} đ`
     },
     {
+      title: 'SKU',
+      dataIndex: 'sku',
+      key: 'sku',
+      render: (sku) => sku || '—'
+    },
+    {
+      title: 'Khối lượng',
+      dataIndex: 'weight_grams',
+      key: 'weight_grams',
+      render: (weight) => weight == null ? '—' : `${Number(weight).toLocaleString('vi-VN')} g`
+    },
+    {
       title: 'Kho hàng',
       key: 'stock', 
       render: (_, record) => {
-        const currentStock = record.stock_quantity ?? record.stock ?? 0;
+        const currentStock = record.stock_quantity ?? 0;
         return (
           <Tag color={currentStock > 0 ? 'green' : 'red'}>
             {currentStock > 0 ? `Còn ${currentStock}` : 'Hết hàng'}
@@ -309,22 +337,24 @@ const AdminProducts = () => {
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
-          initialValues={{ is_active: true, stock: 10 }}
+          initialValues={{ is_active: true, stock_quantity: 0, weight_grams: 0, attribute_entries: [] }}
         >
           <Form.Item
             name="name"
             label="Tên sản phẩm"
-            rules={[{ required: true, message: 'Vui lòng nhập tên sản phẩm!' }]}
+            rules={[
+              { required: true, whitespace: true, message: 'Vui lòng nhập tên sản phẩm!' },
+              { max: 255, message: 'Tên sản phẩm không được dài quá 255 ký tự!' },
+            ]}
           >
-            <Input placeholder="Nhập tên sản phẩm..." />
+            <Input maxLength={255} placeholder="Nhập tên sản phẩm..." />
           </Form.Item>
 
           <Form.Item
             name="category_id"
             label="Danh mục"
-            rules={[{ required: true, message: 'Vui lòng chọn danh mục!' }]}
           >
-            <Select placeholder="Chọn danh mục sản phẩm">
+            <Select allowClear placeholder="Không bắt buộc chọn danh mục">
               {categories.map((cat) => (
                 <Select.Option key={cat.id} value={cat.id}>
                   {cat.name}
@@ -337,21 +367,36 @@ const AdminProducts = () => {
             <Form.Item
               name="price"
               label="Giá bán (VNĐ)"
-              rules={[{ required: true, message: 'Vui lòng nhập giá!' }]}
+              rules={[
+                { required: true, message: 'Vui lòng nhập giá!' },
+                { type: 'number', min: 0, message: 'Giá bán phải lớn hơn hoặc bằng 0!' },
+              ]}
             >
               <InputNumber 
                 style={{ width: '100%' }} 
+                max={999999999999}
+                min={0}
+                precision={0}
+                step={1}
                 formatter={(val) => `${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(val) => val.replace(/\$\s?|(,*)/g, '')}
+                parser={(val) => (val || '').replace(/[，,\s]/g, '')}
                 placeholder="0"
               />
             </Form.Item>
 
-            <Form.Item name="original_price" label="Giá gốc (VNĐ)">
+            <Form.Item
+              name="original_price"
+              label="Giá gốc (VNĐ)"
+              rules={[{ type: 'number', min: 0, message: 'Giá gốc phải lớn hơn hoặc bằng 0!' }]}
+            >
               <InputNumber 
                 style={{ width: '100%' }} 
+                max={999999999999}
+                min={0}
+                precision={0}
+                step={1}
                 formatter={(val) => `${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(val) => val.replace(/\$\s?|(,*)/g, '')}
+                parser={(val) => (val || '').replace(/[，,\s]/g, '')}
                 placeholder="0"
               />
             </Form.Item>
@@ -359,11 +404,11 @@ const AdminProducts = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <Form.Item
-              name="stock"
+              name="stock_quantity"
               label="Số lượng tồn kho"
               rules={[{ required: true, message: 'Vui lòng nhập tồn kho!' }]}
             >
-              <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+              <InputNumber style={{ width: '100%' }} min={0} precision={0} step={1} placeholder="0" />
             </Form.Item>
 
             <Form.Item name="is_active" label="Hiển thị sản phẩm" valuePropName="checked">
@@ -371,8 +416,70 @@ const AdminProducts = () => {
             </Form.Item>
           </div>
 
-          <Form.Item name="description" label="Mô tả sản phẩm">
-            <Input.TextArea rows={3} placeholder="Nhập thông tin mô tả chi tiết..." />
+          <Form.Item
+            name="sku"
+            label="SKU"
+            rules={[{ max: 64, message: 'SKU không được dài quá 64 ký tự!' }]}
+          >
+            <Input maxLength={64} placeholder="Mã sản phẩm (không bắt buộc)" />
+          </Form.Item>
+
+          <Form.Item
+            name="weight_grams"
+            label="Khối lượng (gram)"
+            rules={[{ type: 'number', min: 0, message: 'Khối lượng phải lớn hơn hoặc bằng 0!' }]}
+          >
+            <InputNumber style={{ width: '100%' }} min={0} precision={0} step={1} placeholder="0" />
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="Mô tả sản phẩm"
+            rules={[{ max: 5000, message: 'Mô tả không được dài quá 5000 ký tự!' }]}
+          >
+            <Input.TextArea rows={3} maxLength={5000} showCount placeholder="Nhập thông tin mô tả chi tiết..." />
+          </Form.Item>
+
+          <Form.Item label="Thuộc tính sản phẩm">
+            <Form.List name="attribute_entries">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <div
+                      key={key}
+                      style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}
+                    >
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'key']}
+                        rules={[{ required: true, whitespace: true, message: 'Nhập tên thuộc tính' }]}
+                        style={{ flex: 1, marginBottom: 0 }}
+                      >
+                        <Input placeholder="Tên (ví dụ: Màu sắc)" />
+                      </Form.Item>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'value']}
+                        rules={[{ required: true, whitespace: true, message: 'Nhập giá trị thuộc tính' }]}
+                        style={{ flex: 1, marginBottom: 0 }}
+                      >
+                        <Input placeholder="Giá trị (ví dụ: Đen)" />
+                      </Form.Item>
+                      <Button
+                        danger
+                        type="text"
+                        icon={<DeleteOutlined />}
+                        aria-label="Xóa thuộc tính"
+                        onClick={() => remove(name)}
+                      />
+                    </div>
+                  ))}
+                  <Button type="dashed" onClick={() => add({ key: '', value: '' })} icon={<PlusOutlined />} block>
+                    Thêm thuộc tính
+                  </Button>
+                </>
+              )}
+            </Form.List>
           </Form.Item>
 
           <Form.Item label="Ảnh sản phẩm">

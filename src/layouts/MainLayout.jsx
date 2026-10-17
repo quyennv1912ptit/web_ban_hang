@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import Header from '../components/Header';
 
-const MainLayout = () => (
+const MainLayout = ({ userRole }) => (
     <>
-        <Header />
+        <Header isAdmin={userRole === 'admin'} />
         <main style={{ maxWidth: 1200, margin: '0 auto', padding: 16 }}>
-            <Outlet />
+            <Suspense fallback={<div role="status" style={{ minHeight: '40vh', display: 'grid', placeItems: 'center' }}>Đang tải trang...</div>}>
+                <Outlet />
+            </Suspense>
         </main>
     </>
 );

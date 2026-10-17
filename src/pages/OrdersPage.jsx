@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Tag, Button, Modal, message } from 'antd';
 import { FiPackage } from 'react-icons/fi';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import { auth } from '../config/firebase';
 import './OrdersPage.css';
 
@@ -26,7 +26,7 @@ const OrdersPage = () => {
       if (!headers) return;
       
       setLoading(true);
-      const res = await axios.get('http://localhost:8000/api/orders/', { headers });
+      const res = await axiosClient.get('/orders/', { headers });
       // FastAPI-pagination trả về dữ liệu qua trường .items hoặc trực tiếp mảng
       setOrders(res.data.items || res.data || []);
     } catch (error) {
@@ -52,7 +52,7 @@ const OrdersPage = () => {
   const handleViewDetail = async (orderId) => {
     try {
       const headers = await getAuthHeader();
-      const res = await axios.get(`http://localhost:8000/api/orders/${orderId}`, { headers });
+      const res = await axiosClient.get(`/orders/${orderId}`, { headers });
       setSelectedOrder(res.data);
       setIsModalVisible(true);
     } catch (error) {
@@ -65,7 +65,7 @@ const OrdersPage = () => {
   const handleCancelOrder = async (orderId) => {
     try {
       const headers = await getAuthHeader();
-      await axios.post(`http://localhost:8000/api/orders/${orderId}/cancel`, {}, { headers });
+      await axiosClient.post(`/orders/${orderId}/cancel`, {}, { headers });
       message.success('Đã hủy đơn hàng thành công');
       fetchOrders(); // Tải lại danh sách
     } catch (error) {
@@ -108,6 +108,7 @@ const OrdersPage = () => {
         else if (stt === 'shipped') { color = 'purple'; textStatus = 'Đang giao'; }
         else if (stt === 'delivered') { color = 'green'; textStatus = 'Đã giao'; }
         else if (stt === 'cancelled') { color = 'red'; textStatus = 'Đã hủy'; }
+        else if (stt === 'returned') { color = 'purple'; textStatus = 'Đã hoàn hàng'; }
 
         return <Tag color={color}>{textStatus}</Tag>;
       }

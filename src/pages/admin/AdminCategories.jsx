@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Space, Modal, Form, Input, Popconfirm, message, Card } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient';
 import { auth } from '../../config/firebase';
 
 const AdminCategories = () => {
@@ -18,7 +18,7 @@ const AdminCategories = () => {
       if (!user) return;
       const token = await user.getIdToken();
 
-      const res = await axios.get('http://127.0.0.1:8000/api/admin/categories', {
+      const res = await axiosClient.get('/admin/categories', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCategories(res.data || []);
@@ -55,11 +55,11 @@ const AdminCategories = () => {
 
       if (editingCategory) {
         // Cập nhật danh mục
-        await axios.put(`http://127.0.0.1:8000/api/admin/categories/${editingCategory.id}`, values, { headers });
+        await axiosClient.put(`/admin/categories/${editingCategory.id}`, values, { headers });
         message.success("Cập nhật danh mục thành công!");
       } else {
         // Tạo mới danh mục
-        await axios.post('http://127.0.0.1:8000/api/admin/categories', values, { headers });
+        await axiosClient.post('/admin/categories', values, { headers });
         message.success("Thêm danh mục mới thành công!");
       }
 
@@ -76,7 +76,7 @@ const AdminCategories = () => {
       const user = auth.currentUser;
       const token = await user.getIdToken();
 
-      await axios.delete(`http://127.0.0.1:8000/api/admin/categories/${id}`, {
+      await axiosClient.delete(`/admin/categories/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

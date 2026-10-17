@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import {
     FiShoppingCart,
     FiHeart,
@@ -28,7 +28,7 @@ const QUICK_LINKS = [
     { label: 'Hàng mới về', to: '/new' },
 ];
 
-const Header = () => {
+const Header = ({ isAdmin = false }) => {
     const { user, loading } = useAuth();
     const { totalQuantity } = useCart();
     const navigate = useNavigate();
@@ -38,21 +38,30 @@ const Header = () => {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [catOpen, setCatOpen] = useState(false);
     const [categories, setCategories] = useState([]); 
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
 
     const userMenuRef = useRef(null);
     const catMenuRef = useRef(null);
+    const categoriesLoadedRef = useRef(false);
+    const categoriesRequestRef = useRef(null);
 
-    useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const response = await axios.get('http://127.0.0.1:8000/api/categories/');
-                setCategories(response.data);
-            } catch (error) {
-                console.error("Lỗi tải danh mục trên Header:", error);
-            }
-        };
-        fetchCategories();
-    }, []);
+    const loadCategories = async () => {
+        if (categoriesLoadedRef.current || categoriesRequestRef.current) return;
+
+        setCategoriesLoading(true);
+        const request = axiosClient.get('/categories/');
+        categoriesRequestRef.current = request;
+        try {
+            const response = await request;
+            setCategories(Array.isArray(response.data) ? response.data : []);
+            categoriesLoadedRef.current = true;
+        } catch (error) {
+            console.error("Lỗi tải danh mục trên Header:", error);
+        } finally {
+            categoriesRequestRef.current = null;
+            setCategoriesLoading(false);
+        }
+    };
 
     useEffect(() => {
         setMobileOpen(false);
@@ -97,9 +106,6 @@ const Header = () => {
     const displayName = user?.displayName || user?.email || 'Tài khoản';
     const initial = displayName.charAt(0).toUpperCase();
 
-    // Kiểm tra xem user hiện tại có phải admin không (check qua email hoặc role từ DB)
-    const isAdmin = user?.email && ['minhhieu15thmay@gmail.com', 'admin_phu@gmail.com'].includes(user.email.toLowerCase());
-
     return (
         <header className="header">
             <div className="header__topbar">
@@ -107,7 +113,7 @@ const Header = () => {
                     <span><FiPhone /> Hotline: 0123 456 789</span>
                     <div className="header__topbar-links">
                         <Link to="/help">Trợ giúp</Link>
-                        <Link to="/orders/track">Tra cứu đơn hàng</Link>
+                        <Link to="/orders">Tra cứu đơn hàng</Link>
                     </div>
                 </div>
             </div>
@@ -218,7 +224,11 @@ const Header = () => {
                         <button
                             type="button"
                             className="header__cats-btn"
-                            onClick={() => setCatOpen((v) => !v)}
+                            onClick={() => {
+                                const shouldOpen = !catOpen;
+                                setCatOpen(shouldOpen);
+                                if (shouldOpen) loadCategories();
+                            }}
                             aria-haspopup="true"
                             aria-expanded={catOpen}
                         >
@@ -227,11 +237,13 @@ const Header = () => {
 
                         {catOpen && (
                             <div className="header__cats-panel">
-                                {categories.map((c) => (
+                                {categoriesLoading && <span>Đang tải danh mục...</span>}
+                                {!categoriesLoading && categories.map((c) => (
                                     <Link key={c.id} to={`/category/${c.id}`}>
                                         {c.name}
                                     </Link>
                                 ))}
+                                {!categoriesLoading && categories.length === 0 && <span>Chưa có danh mục</span>}
                             </div>
                         )}
                     </div>

@@ -1,31 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import CategoryGrid from '../components/home/CategoryGrid';
 import ProductCard from '../components/home/ProductCard';
 import './HomePage.css';
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 24;
 
 const HomePage = () => {
-    const [visible, setVisible] = useState(PAGE_SIZE);
-    
-    // 1. Thêm state để lưu dữ liệu thật
     const [categories, setCategories] = useState([]);
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
 
     // 2. Gọi API khi trang chủ vừa tải
     useEffect(() => {
         const fetchHomeData = async () => {
             try {
                 setLoading(true);
-                // Gọi API lấy danh mục
-                const catRes = await axios.get('http://127.0.0.1:8000/api/categories/');
-                setCategories(catRes.data);
-
-                // Gọi API lấy toàn bộ sản phẩm (hoặc sản phẩm nổi bật tùy backend của bạn)
-                const prodRes = await axios.get('http://127.0.0.1:8000/api/products/');
-                setProducts(prodRes.data);
+                const [catRes, prodRes] = await Promise.all([
+                    axiosClient.get('/categories/'),
+                    axiosClient.get('/products/', { params: { page: 1, size: PAGE_SIZE } }),
+                ]);
+                setCategories(Array.isArray(catRes.data) ? catRes.data : []);
+                setProducts(prodRes.data?.items || []);
+                setPage(Number(prodRes.data?.page || 1));
+                setHasMore(Number(prodRes.data?.page || 1) < Number(prodRes.data?.pages || 1));
             } catch (error) {
                 console.error("Lỗi lấy dữ liệu trang chủ:", error);
             } finally {
@@ -35,6 +36,25 @@ const HomePage = () => {
 
         fetchHomeData();
     }, []);
+
+    const loadMore = async () => {
+        if (loadingMore || !hasMore) return;
+        try {
+            setLoadingMore(true);
+            const nextPage = page + 1;
+            const response = await axiosClient.get('/products/', {
+                params: { page: nextPage, size: PAGE_SIZE },
+            });
+            const nextProducts = response.data?.items || [];
+            setProducts((current) => [...current, ...nextProducts]);
+            setPage(Number(response.data?.page || nextPage));
+            setHasMore(Number(response.data?.page || nextPage) < Number(response.data?.pages || nextPage));
+        } catch (error) {
+            console.error('Lỗi tải thêm sản phẩm:', error);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     return (
         <div className="home">
@@ -55,15 +75,15 @@ const HomePage = () => {
                     <>
                         <div className="products">
                             {/* 4. Truyền dữ liệu sản phẩm thật vào vòng lặp */}
-                            {(Array.isArray(products) ? products : (products?.items || products?.data || [])).slice(0, visible).map((p, index) => (
-                                <ProductCard key={p?.id || index} product={p} />
+                            {products.map((product, index) => (
+                                <ProductCard key={product.id} product={product} priority={index === 0} />
                             ))}
                         </div>
 
-                        {visible < products.length && (
+                        {hasMore && (
                             <div className="products__more">
-                                <button type="button" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
-                                    Xem thêm
+                                <button type="button" onClick={loadMore} disabled={loadingMore}>
+                                    {loadingMore ? 'Đang tải...' : 'Xem thêm'}
                                 </button>
                             </div>
                         )}

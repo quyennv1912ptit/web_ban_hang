@@ -18,7 +18,7 @@ const UserInfoPage = () => {
         }
 
         getUserInfo()
-            .then(setProfile)
+            .then(({ data }) => setProfile(data))
             .catch((e) => {
                 const status = e.response?.status
                 setError(

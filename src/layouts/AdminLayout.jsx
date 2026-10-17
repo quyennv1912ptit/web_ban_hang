@@ -1,4 +1,5 @@
 import React from 'react';
+import { Suspense } from 'react';
 import { Layout, Menu, Button } from 'antd';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -52,7 +53,9 @@ const AdminLayout = () => {
           <span style={{ fontWeight: '500' }}>Xin chào, Admin</span>
         </Header>
         <Content style={{ margin: '24px 16px', padding: 24, background: '#fff', minHeight: 280 }}>
-          <Outlet />
+          <Suspense fallback={<div role="status" style={{ minHeight: 280, display: 'grid', placeItems: 'center' }}>Đang tải trang...</div>}>
+            <Outlet />
+          </Suspense>
         </Content>
       </Layout>
     </Layout>

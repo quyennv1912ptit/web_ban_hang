@@ -2,8 +2,7 @@ import axios from "axios"
 import {auth} from "../config/firebase"
 
 const axiosClient = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
-    headers: { "Content-Type": "application/json" }
+    baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api",
 })
 
 // Gắn token
@@ -15,11 +14,5 @@ axiosClient.interceptors.request.use(async (config) => {
   }
   return config
 })
-
-// Trả thẳng data
-axiosClient.interceptors.response.use(
-  (response) => response.data,
-  (error) => Promise.reject(error)
-)
 
 export default axiosClient

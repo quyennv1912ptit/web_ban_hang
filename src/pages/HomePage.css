@@ -172,7 +172,7 @@
 .product__discount {
     position: absolute;
     top: 0;
-    right: 0;
+    left: 0;
     background: #ffd839;
     color: #dc2626;
     font-size: 12px;

@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FiTrash2, FiPlus, FiMinus, FiArrowLeft } from 'react-icons/fi';
 import { Modal, Button, Input, Radio, Form, message, Checkbox } from 'antd';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import { auth } from '../config/firebase';
 import { useCart } from '../contexts/CartContext';
 import './CartPage.css';
 
 const CartPage = () => {
-    const { cartItems, updateQuantity, removeFromCart, clearCart, loading, fetchCart } = useCart();
+    const { cartItems, updateQuantity, removeFromCart, loading, fetchCart } = useCart();
     const [addresses, setAddresses] = useState([]);
     const [selectedAddressId, setSelectedAddressId] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState("cod");
@@ -39,14 +39,17 @@ const CartPage = () => {
         try {
             const headers = await getAuthHeader();
             if (!headers) return;
-            const { data } = await axios.get('http://localhost:8000/api/users/addresses', { headers });
+            const { data } = await axiosClient.get('/users/addresses', { headers });
             setAddresses(data || []);
             if (data?.length > 0) setSelectedAddressId((data.find(a => a.is_default) || data[0]).id);
         } catch (error) { console.error("Lỗi tải địa chỉ:", error); }
     };
 
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged(user => { user ? fetchAddresses() : setAddresses([]); });
+        const unsubscribe = auth.onAuthStateChanged(user => {
+            if (user) fetchAddresses();
+            else setAddresses([]);
+        });
         return () => unsubscribe();
     }, []);
 
@@ -54,7 +57,7 @@ const CartPage = () => {
         try {
             setSubmittingAddr(true);
             const headers = await getAuthHeader();
-            const { data } = await axios.post('http://localhost:8000/api/users/addresses', values, { headers });
+            const { data } = await axiosClient.post('/users/addresses', values, { headers });
             message.success('Thêm địa chỉ thành công!');
             setIsModalOpen(false);
             form.resetFields();
@@ -73,6 +76,8 @@ const CartPage = () => {
 
     const selectedTotalPrice = cartItems.filter(item => selectedItemIds.includes(String(item.product_id || item.product?.id)))
         .reduce((sum, item) => sum + (Number((item.product || item).price ?? (item.product || item).unit_price ?? item.price ?? 0) * item.quantity), 0);
+    const shippingFee = selectedItemIds.length === 0 || selectedTotalPrice >= 199000 ? 0 : 30000;
+    const totalPayment = selectedTotalPrice + shippingFee;
 
     const handleCheckout = async () => {
         if (!selectedItemIds.length) return message.warning('Vui lòng tick chọn ít nhất 1 sản phẩm!');
@@ -82,10 +87,13 @@ const CartPage = () => {
             const headers = await getAuthHeader();
             if (!headers) return message.warning('Vui lòng đăng nhập để thanh toán!');
             const itemsToOrder = cartItems.filter(item => selectedItemIds.includes(String(item.product_id || item.product?.id)));
-            await axios.post('http://localhost:8000/api/orders/', {
+            const orderResponse = await axiosClient.post('/orders/', {
                 address_id: selectedAddressId, payment_method: paymentMethod,
                 items: itemsToOrder.map(item => ({ product_id: item.product_id || item.product?.id, quantity: item.quantity }))
             }, { headers });
+            if (paymentMethod !== 'cod' && orderResponse.data?.id) {
+                await axiosClient.post(`/orders/${orderResponse.data.id}/pay`, {}, { headers });
+            }
             message.success('Đặt hàng thành công!');
             for (const id of selectedItemIds) await removeFromCart(id);
             setSelectedItemIds([]);
@@ -118,7 +126,7 @@ const CartPage = () => {
                             <div key={pId} className="cart-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 0', borderBottom: '1px solid #eee' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: 2 }}>
                                     <Checkbox checked={selectedItemIds.includes(pId)} onChange={() => handleSelectItem(pId)} />
-                                    <img src={product.image_url || product.image || 'https://via.placeholder.com/80'} alt="product" style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handleSelectItem(pId)} />
+                                    <img src={product.images?.[0]?.image_url || product.image_url || product.image || 'https://via.placeholder.com/80'} alt={product.name || 'Sản phẩm'} style={{ width: '80px', height: '80px', objectFit: 'contain', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handleSelectItem(pId)} />
                                     <div>
                                         <h4 style={{ margin: '0 0 5px 0', fontSize: '16px', cursor: 'pointer' }} onClick={() => handleSelectItem(pId)}>{product.name || item.product_name}</h4>
                                         <span style={{ color: '#ee4d2d', fontWeight: 'bold' }}>{price.toLocaleString('vi-VN')}đ</span>
@@ -153,10 +161,16 @@ const CartPage = () => {
                     )}
                     <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Thanh toán</h3>
                     <Radio.Group onChange={e => setPaymentMethod(e.target.value)} value={paymentMethod} style={{ marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        <Radio value="cod">Thanh toán khi nhận hàng (COD)</Radio><Radio value="vnpay">VNPay</Radio><Radio value="momo">MoMo</Radio><Radio value="credit_card">Thẻ tín dụng</Radio>
+                        <Radio value="cod">Thanh toán khi nhận hàng (COD)</Radio><Radio value="vnpay">VNPay (mô phỏng)</Radio><Radio value="momo">MoMo (mô phỏng)</Radio><Radio value="credit_card">Thẻ tín dụng (mô phỏng)</Radio>
                     </Radio.Group>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
-                        <strong>Tổng ({selectedItemIds.length}):</strong><strong style={{ color: '#ee4d2d' }}>{selectedTotalPrice.toLocaleString('vi-VN')}đ</strong>
+                        <span>Tạm tính:</span><span>{selectedTotalPrice.toLocaleString('vi-VN')}đ</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+                        <span>Phí giao hàng:</span><span>{shippingFee.toLocaleString('vi-VN')}đ</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', marginTop: 8 }}>
+                        <strong>Tổng ({selectedItemIds.length}):</strong><strong style={{ color: '#ee4d2d' }}>{totalPayment.toLocaleString('vi-VN')}đ</strong>
                     </div>
                     <button onClick={handleCheckout} disabled={submittingOrder || selectedItemIds.length === 0} style={{ width: "100%", padding: "12px", backgroundColor: selectedItemIds.length === 0 ? "#ccc" : "#ee4d2d", color: "#fff", border: "none", borderRadius: "4px", fontSize: "16px", fontWeight: "bold", cursor: selectedItemIds.length === 0 ? "not-allowed" : "pointer", marginTop: "15px", opacity: submittingOrder ? 0.7 : 1 }}>
                         {submittingOrder ? 'Đang xử lý...' : `Mua hàng (${selectedItemIds.length})`}

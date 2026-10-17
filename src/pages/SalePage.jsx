@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import ProductCard from '../components/home/ProductCard'; 
 import '../pages/CategoryPage.css'; 
 
@@ -15,7 +15,10 @@ const SalePage = () => {
         const fetchSaleProducts = async () => {
             try {
                 setLoading(true);
-                const res = await axios.get('http://127.0.0.1:8000/api/products/?on_sale=true');
+                setError(null);
+                const params = { on_sale: true, size: 50 };
+                if (sortOption !== 'biggest_discount') params.sort = sortOption;
+                const res = await axiosClient.get('/products/', { params });
                 setProducts(res.data.items || res.data || []);
             } catch (err) {
                 console.error("Lỗi khi tải sản phẩm khuyến mãi:", err);
@@ -26,27 +29,16 @@ const SalePage = () => {
         };
 
         fetchSaleProducts();
-    }, []);
+    }, [sortOption]);
 
     // 2. Logic tự động sắp xếp sản phẩm khi chọn bộ lọc
     const sortedProducts = useMemo(() => {
-        let result = [...products];
-        switch (sortOption) {
-            case 'price_asc':
-                // Giá từ thấp đến cao
-                return result.sort((a, b) => (a.price || a.gia_ban || 0) - (b.price || b.gia_ban || 0));
-            case 'biggest_discount':
-                // Giảm nhiều nhất (Tính mức chênh lệch giữa giá gốc và giá bán)
-                return result.sort((a, b) => {
-                    const discountA = (a.original_price || a.gia_goc || a.price || 0) - (a.price || a.gia_ban || 0);
-                    const discountB = (b.original_price || b.gia_goc || b.price || 0) - (b.price || b.gia_ban || 0);
-                    return discountB - discountA; // Thằng nào giảm nhiều tiền hơn xếp lên đầu
-                });
-            case 'newest':
-            default:
-                // Mới cập nhật (Dựa vào ID lớn xếp trước)
-                return result.sort((a, b) => b.id - a.id);
-        }
+        if (sortOption !== 'biggest_discount') return products;
+        return [...products].sort((a, b) => {
+            const discountA = Number(a.original_price ?? 0) - Number(a.price ?? 0);
+            const discountB = Number(b.original_price ?? 0) - Number(b.price ?? 0);
+            return discountB - discountA;
+        });
     }, [products, sortOption]);
 
     if (loading) {
@@ -79,8 +71,8 @@ const SalePage = () => {
                 {/* 4. Render danh sách đã được sắp xếp (sortedProducts) */}
                 {sortedProducts.length > 0 ? (
                     <div className="product-grid">
-                        {sortedProducts.map((product) => (
-                            <ProductCard key={product.id} product={product} />
+                        {sortedProducts.map((product, index) => (
+                            <ProductCard key={product.id} product={product} priority={index === 0} />
                         ))}
                     </div>
                 ) : (

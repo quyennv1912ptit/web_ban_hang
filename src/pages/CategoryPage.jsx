@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import axiosClient from '../api/axiosClient';
+import ProductCard from '../components/home/ProductCard';
 import './CategoryPage.css';
 
 function CategoryPage() {
@@ -12,7 +13,7 @@ function CategoryPage() {
   const [error, setError] = useState(null);
   
   // 1. Thêm State để lưu tiêu chí lọc
-  const [sortOption, setSortOption] = useState('popular');
+  const [sortOption, setSortOption] = useState('best_selling');
 
   useEffect(() => {
     const fetchCategoryData = async () => {
@@ -20,11 +21,12 @@ function CategoryPage() {
         setLoading(true);
         setError(null);
 
-        const categoryRes = await axios.get(`http://127.0.0.1:8000/api/categories/${id}`);
-        setCategoryName(categoryRes.data.name || categoryRes.data.ten_danh_muc || 'Danh mục');
-
-        const productsRes = await axios.get(`http://127.0.0.1:8000/api/products?category_id=${id}`);
-        setProducts(productsRes.data.items || productsRes.data); 
+        const [categoryRes, productsRes] = await Promise.all([
+          axiosClient.get(`/categories/${id}`),
+          axiosClient.get('/products/', { params: { category_id: id, sort: sortOption, size: 50 } }),
+        ]);
+        setCategoryName(categoryRes.data.name || 'Danh mục');
+        setProducts(productsRes.data?.items || []);
 
       } catch (err) {
         console.error("Lỗi khi kết nối backend:", err);
@@ -37,29 +39,7 @@ function CategoryPage() {
     if (id) {
       fetchCategoryData();
     }
-  }, [id]); 
-
-  // 2. Tự động sắp xếp lại mảng products mỗi khi sortOption thay đổi
-  const sortedProducts = useMemo(() => {
-    let result = [...products];
-    switch (sortOption) {
-      case 'price_asc':
-        return result.sort((a, b) => (a.price || a.gia_ban || 0) - (b.price || b.gia_ban || 0));
-      case 'price_desc':
-        return result.sort((a, b) => (b.price || b.gia_ban || 0) - (a.price || a.gia_ban || 0));
-      case 'best_selling':
-        return result.sort((a, b) => (b.sold || b.sold_count || 0) - (a.sold || a.sold_count || 0));
-      case 'newest':
-        return result.sort((a, b) => b.id - a.id); // Giả định ID lớn hơn là mới hơn
-      default: // 'popular'
-        return result; // Giữ nguyên thứ tự gốc từ API
-    }
-  }, [products, sortOption]);
-
-  const formatPrice = (price) => {
-    if (!price) return '0đ';
-    return price.toLocaleString('vi-VN') + 'đ';
-  };
+  }, [id, sortOption]);
 
   if (loading) {
     return <div className="category-page flex justify-center items-center h-64"><h3>Đang tải dữ liệu...</h3></div>;
@@ -81,51 +61,18 @@ function CategoryPage() {
             value={sortOption} 
             onChange={(e) => setSortOption(e.target.value)}
           >
-            <option value="popular">Phổ biến</option>
-            <option value="newest">Mới nhất</option>
             <option value="best_selling">Bán chạy</option>
+            <option value="newest">Mới nhất</option>
+            <option value="top_rated">Đánh giá cao</option>
             <option value="price_asc">Giá từ thấp đến cao</option>
             <option value="price_desc">Giá từ cao xuống thấp</option>
           </select>
         </div>
 
-        {/* 4. Render danh sách đã sắp xếp (sortedProducts) thay vì mảng gốc (products) */}
-        {sortedProducts.length > 0 ? (
+        {/* Sắp xếp được áp dụng trực tiếp bởi endpoint danh sách sản phẩm. */}
+        {products.length > 0 ? (
           <div className="product-grid">
-            {sortedProducts.map((product) => (
-              <Link 
-                to={`/product/${product.id}`} 
-                key={product.id} 
-                className="product-card"
-                style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
-              >
-                <img 
-                  src={product.image || product.image_url} 
-                  alt={product.name || product.ten_san_pham} 
-                  className="product-img" 
-                />
-                
-                <div className="product-info">
-                  <h3 className="product-title">{product.name || product.ten_san_pham}</h3>
-                  
-                  <div>
-                    <div className="product-prices">
-                      <span className="product-price">{formatPrice(product.price || product.gia_ban)}</span>
-                      {(product.oldPrice || product.gia_goc) && (
-                        <span className="product-old-price">{formatPrice(product.oldPrice || product.gia_goc)}</span>
-                      )}
-                    </div>
-
-                    <div className="product-meta">
-                      <span className="star">★</span>
-                      <span>{product.rating || '5.0'}</span>
-                      <span className="dot">|</span>
-                      <span>Đã bán {product.sold || product.sold_count || '0'}</span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
+            {products.map((product, index) => <ProductCard key={product.id} product={product} priority={index === 0} />)}
           </div>
         ) : (
           <div className="empty-state">

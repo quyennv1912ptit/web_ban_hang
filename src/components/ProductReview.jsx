@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Rate, Input, Button, Avatar, message, Popconfirm, Spin, Select } from 'antd';
 import { UserOutlined, DeleteOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import { auth } from '../config/firebase';
 
 const { TextArea } = Input;
@@ -14,6 +14,7 @@ const ProductReviews = ({ productId }) => {
   // Delivered Orders
   const [deliveredOrders, setDeliveredOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   // Form State
   const [rating, setRating] = useState(5);
@@ -24,7 +25,7 @@ const ProductReviews = ({ productId }) => {
   // 1. Tải danh sách đánh giá từ API backend (Lưu ý: backend dùng fastapi-pagination)
   const fetchReviews = async () => {
     try {
-      const res = await axios.get(`http://127.0.0.1:8000/api/products/${productId}/reviews`);
+      const res = await axiosClient.get(`/products/${productId}/reviews`);
       // fastapi-pagination trả về dữ liệu nằm trong res.data.items
       setReviews(res.data.items || res.data || []);
     } catch (error) {
@@ -39,15 +40,24 @@ const ProductReviews = ({ productId }) => {
     if (!currentUser) return;
     try {
       const token = await currentUser.getIdToken();
-      const res = await axios.get(`http://127.0.0.1:8000/api/orders`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await axiosClient.get('/orders/', {
+        params: { status: 'delivered', size: 100 },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
-      const ordersList = res.data.items || res.data || [];
-      // Lọc các đơn hàng trạng thái 'delivered' chứa sản phẩm này
-      const eligible = ordersList.filter(order => 
-        order.status === 'delivered' && 
-        order.items?.some(item => item.product_id === productId)
+      const ordersList = res.data.items || [];
+      const orderDetails = await Promise.all(ordersList.map(async (order) => {
+        try {
+          const detail = await axiosClient.get(`/orders/${order.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          return detail.data;
+        } catch (error) {
+          console.warn(`Không tải được đơn hàng ${order.id}:`, error);
+          return null;
+        }
+      }));
+      const eligible = orderDetails.filter(order =>
+        order?.items?.some(item => String(item.product_id) === String(productId))
       );
 
       setDeliveredOrders(eligible);
@@ -63,6 +73,13 @@ const ProductReviews = ({ productId }) => {
     if (productId) {
       fetchReviews();
       checkDeliveredOrders();
+      if (currentUser) {
+        axiosClient.get('/users/me')
+          .then(({ data }) => setCurrentUserId(data.id))
+          .catch(error => console.warn('Không tải được thông tin tài khoản:', error));
+      } else {
+        setCurrentUserId(null);
+      }
     }
   }, [productId]);
 
@@ -86,8 +103,8 @@ const ProductReviews = ({ productId }) => {
     setSubmitting(true);
     try {
       const token = await currentUser.getIdToken();
-      await axios.post(
-        `http://127.0.0.1:8000/api/products/${productId}/reviews`,
+      await axiosClient.post(
+        `/products/${productId}/reviews`,
         {
           order_id: selectedOrderId,
           rating: rating,
@@ -112,8 +129,8 @@ const ProductReviews = ({ productId }) => {
   const handleDelete = async (reviewId) => {
     try {
       const token = await currentUser.getIdToken();
-      await axios.delete(
-        `http://127.0.0.1:8000/api/products/${productId}/reviews/${reviewId}`,
+      await axiosClient.delete(
+        `/products/${productId}/reviews/${reviewId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       message.success('Đã xóa đánh giá');
@@ -217,7 +234,7 @@ const ProductReviews = ({ productId }) => {
               </div>
 
               {/* Nút xóa nếu đúng tác giả */}
-              {currentUser && item.user_id === currentUser.uid && (
+              {currentUser && String(item.user_id) === String(currentUserId) && (
                 <Popconfirm title="Xóa đánh giá này?" onConfirm={() => handleDelete(item.id)} okText="Xóa" cancelText="Hủy">
                   <Button type="text" danger icon={<DeleteOutlined />} size="small" />
                 </Popconfirm>

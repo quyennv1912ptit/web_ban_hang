@@ -1,20 +1,31 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FiCamera, FiSearch, FiX } from 'react-icons/fi';
 import { toast } from 'react-toastify';
-import ImageCropModal from './ImageCropModal';
 import './SearchBox.css';
 
-const MAX_FILE_MB = 5;
+const MAX_FILE_MB = 10;
+const ImageCropModal = lazy(() => import('./ImageCropModal'));
 
 // variant: 'hero' (to, có đổ bóng) | 'compact' (gọn, dùng trong header)
 const SearchBox = ({ variant = 'hero' }) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [text, setText] = useState('');
     const [imageBlob, setImageBlob] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [cropSrc, setCropSrc] = useState(null);
     const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        if (location.pathname !== '/search') return;
+
+        const query = new URLSearchParams(location.search).get('q') || '';
+        const searchedImage = location.state?.image;
+        setText(query);
+        setImageBlob(searchedImage instanceof Blob ? searchedImage : null);
+        setPreviewUrl(searchedImage instanceof Blob ? URL.createObjectURL(searchedImage) : null);
+    }, [location.pathname, location.search, location.state?.image]);
 
     useEffect(() => {
         return () => previewUrl && URL.revokeObjectURL(previewUrl);
@@ -61,6 +72,13 @@ const SearchBox = ({ variant = 'hero' }) => {
     const removeImage = () => {
         setImageBlob(null);
         setPreviewUrl(null);
+
+        if (location.pathname === '/search' && location.state?.image) {
+            navigate(`${location.pathname}${location.search}`, {
+                replace: true,
+                state: { ...location.state, image: null },
+            });
+        }
     };
 
     const handleSubmit = (e) => {
@@ -122,11 +140,13 @@ const SearchBox = ({ variant = 'hero' }) => {
             </form>
 
             {cropSrc && (
-                <ImageCropModal
-                    src={cropSrc}
-                    onConfirm={handleCropConfirm}
-                    onCancel={() => setCropSrc(null)}
-                />
+                <Suspense fallback={null}>
+                    <ImageCropModal
+                        src={cropSrc}
+                        onConfirm={handleCropConfirm}
+                        onCancel={() => setCropSrc(null)}
+                    />
+                </Suspense>
             )}
         </>
     );

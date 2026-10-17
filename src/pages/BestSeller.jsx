@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import ProductCard from '../components/home/ProductCard'; 
 import '../pages/CategoryPage.css'; 
 
@@ -15,7 +15,7 @@ const BestSellerPage = () => {
         const fetchBestSellers = async () => {
             try {
                 setLoading(true);
-                const res = await axios.get('http://127.0.0.1:8000/api/products/?sort=best_selling');
+                const res = await axiosClient.get('/products/?sort=best_selling');
                 setProducts(res.data.items || res.data || []);
             } catch (err) {
                 console.error("Lỗi khi tải sản phẩm bán chạy:", err);
@@ -76,8 +76,8 @@ const BestSellerPage = () => {
                 {/* 4. Map dữ liệu từ mảng đã lọc (filteredProducts) */}
                 {filteredProducts.length > 0 ? (
                     <div className="product-grid">
-                        {filteredProducts.map((product) => (
-                            <ProductCard key={product.id} product={product} />
+                        {filteredProducts.map((product, index) => (
+                            <ProductCard key={product.id} product={product} priority={index === 0} />
                         ))}
                     </div>
                 ) : (

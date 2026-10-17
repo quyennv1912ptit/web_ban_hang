@@ -1,33 +1,35 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FiShoppingCart, FiStar } from 'react-icons/fi';
-import { toast } from 'react-toastify';
 import { useCart } from '../../contexts/CartContext';
 import { formatPrice } from '../../utils/format';
 import FavoriteButton from '../FavoriteButton'; // 1. Import component nút thả tim (chỉnh lại đường dẫn file nếu cần)
 
-const ProductCard = ({ product }) => {
+const ProductCard = ({ product, priority = false }) => {
     const { addToCart } = useCart();
 
     // 1. Đồng bộ an toàn các trường dữ liệu từ backend
     const id = product.id;
     const name = product.name || product.ten_san_pham || 'Đang cập nhật...';
-    const price = product.price || product.gia_ban || 0;
-    const oldPrice = product.oldPrice || product.old_price || product.gia_goc || null;
-    const image = product.image || product.image_url || 'https://via.placeholder.com/300x300?text=No+Image';
+    const price = Number(product.price ?? product.gia_ban ?? 0);
+    const oldPrice = Number(product.original_price ?? product.oldPrice ?? product.old_price ?? product.gia_goc ?? 0) || null;
+    const image = product.images?.[0]?.image_url || product.image_url || product.image || 'https://via.placeholder.com/300x300?text=No+Image';
     
     // Fallback mặc định nếu backend của bạn chưa tạo các cột này trong Database
-    const rating = product.rating || 5.0; 
-    const sold = product.sold || product.da_ban || 0; 
+    const rating = Number(product.average_rating ?? product.rating ?? 0);
+    const sold = Number(product.sold_count ?? product.sold ?? product.da_ban ?? 0);
 
     // 2. Tính toán phần trăm giảm giá an toàn
     const discount = oldPrice && oldPrice > price
         ? Math.round((1 - price / oldPrice) * 100)
         : 0;
 
-    const handleAdd = () => {
-        addToCart({ id, name, price, image });
-        toast.success('Đã thêm vào giỏ hàng');
+    const handleAdd = async () => {
+        try {
+            await addToCart(id);
+        } catch {
+            // CartContext đã hiển thị thông báo lỗi cho người mua.
+        }
     };
 
     return (
@@ -35,7 +37,13 @@ const ProductCard = ({ product }) => {
             <div style={{ position: 'relative' }}>
                 <Link to={`/product/${id}`} className="product__link">
                     <div className="product__img-wrap">
-                        <img src={image} alt={name} loading="lazy" />
+                        <img
+                            src={image}
+                            alt={name}
+                            loading={priority ? 'eager' : 'lazy'}
+                            fetchPriority={priority ? 'high' : 'auto'}
+                            decoding="async"
+                        />
                         {discount > 0 && <span className="product__discount">-{discount}%</span>}
                     </div>
                     <h3 className="product__name">{name}</h3>
@@ -58,8 +66,8 @@ const ProductCard = ({ product }) => {
                 <span>Đã bán {Number(sold).toLocaleString('vi-VN')}</span>
             </div>
 
-            <button type="button" className="product__add" onClick={handleAdd}>
-                <FiShoppingCart /> Thêm vào giỏ
+            <button type="button" className="product__add" onClick={handleAdd} disabled={Number(product.stock_quantity ?? 1) < 1}>
+                <FiShoppingCart /> {Number(product.stock_quantity ?? 1) < 1 ? 'Hết hàng' : 'Thêm vào giỏ'}
             </button>
         </article>
     );

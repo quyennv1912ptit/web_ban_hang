@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Tag, Select, message, Card } from 'antd';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient';
 import { auth } from '../../config/firebase';
 
 const AdminUsers = () => {
@@ -15,7 +15,7 @@ const AdminUsers = () => {
       if (!user) return;
       const token = await user.getIdToken();
 
-      const res = await axios.get('http://127.0.0.1:8000/api/admin/users', {
+      const res = await axiosClient.get('/admin/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -42,7 +42,7 @@ const AdminUsers = () => {
       const user = auth.currentUser;
       const token = await user.getIdToken();
 
-      await axios.patch(`http://127.0.0.1:8000/api/admin/users/${userId}`, {
+      await axiosClient.patch(`/admin/users/${userId}/role`, {
         role: newRole
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -70,8 +70,8 @@ const AdminUsers = () => {
     },
     {
       title: 'Họ tên',
-      dataIndex: 'full_name',
-      key: 'full_name',
+      dataIndex: 'display_name',
+      key: 'display_name',
       render: (name) => name || 'Chưa cập nhật'
     },
     {
@@ -89,7 +89,7 @@ const AdminUsers = () => {
       key: 'action',
       render: (_, record) => (
         <Select
-          defaultValue={record.role || 'customer'}
+          value={record.role || 'customer'}
           style={{ width: 130 }}
           onChange={(value) => handleRoleChange(record.id, value)}
           options={[

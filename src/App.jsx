@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './config/firebase';
@@ -9,126 +9,127 @@ import { FavoritesProvider } from './contexts/FavoritesContext'; // 1. Import Fa
 
 // --- Layouts ---
 import MainLayout from './layouts/MainLayout';
-import AdminLayout from './layouts/AdminLayout'; 
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 
-// --- Customer Pages ---
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import TermsPage from './pages/TermsPage';
-import PrivacyPage from './pages/PrivacyPage';
+// Keep the home route in the entry chunk; load other routes when first visited.
 import HomePage from './pages/HomePage';
-import UserInfoPage from "./pages/UserInfoPage";
-import ProductDetailPage from "./pages/ProductDetailPage";
-import CategoryPage from './pages/CategoryPage';
-import SalePage from './pages/SalePage';
-import BestSellerPage from './pages/BestSeller';
-import NewArrivalsPage from './pages/NewArrivalsPage';
-import CartPage from './pages/CartPage';
-import WishlistPage from './pages/WishlistPage';
-import OrdersPage from './pages/OrdersPage';
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const UserInfoPage = lazy(() => import('./pages/UserInfoPage'));
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'));
+const CategoryPage = lazy(() => import('./pages/CategoryPage'));
+const SalePage = lazy(() => import('./pages/SalePage'));
+const BestSellerPage = lazy(() => import('./pages/BestSeller'));
+const NewArrivalsPage = lazy(() => import('./pages/NewArrivalsPage'));
+const SearchPage = lazy(() => import('./pages/SearchPage'));
+const CartPage = lazy(() => import('./pages/CartPage'));
+const WishlistPage = lazy(() => import('./pages/WishlistPage'));
+const OrdersPage = lazy(() => import('./pages/OrdersPage'));
+const HelpPage = lazy(() => import('./pages/HelpPage'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminOrders = lazy(() => import('./pages/admin/AdminOrders'));
+const AdminReviews = lazy(() => import('./pages/admin/AdminReviews'));
+const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'));
 
-// --- Admin Pages ---
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminProducts from './pages/admin/AdminProducts';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminOrders from './pages/admin/AdminOrders';
-import AdminReviews from './pages/admin/AdminReviews';
-import AdminCategories from './pages/admin/AdminCategories';
+const AdminRoute = ({ userRole, roleLoading, children }) => {
+  if (roleLoading) {
+    return <div role="status" style={{ minHeight: '40vh', display: 'grid', placeItems: 'center' }}>Đang xác thực quyền quản trị...</div>;
+  }
+  return userRole === 'admin' ? children : <Navigate to="/" replace />;
+};
+
+const PrivateRoute = ({ userRole, children }) => (
+  auth.currentUser || userRole ? children : <Navigate to="/login" replace />
+);
 
 const App = () => { 
   const [userRole, setUserRole] = useState(null); 
   const [isLoading, setIsLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Cấp quyền Admin nhanh dự phòng qua email để không bị nghẽn giao diện
-        const adminEmails = ['minhhieu15thmay@gmail.com', 'admin_phu@gmail.com'];
-        if (firebaseUser.email && adminEmails.includes(firebaseUser.email.toLowerCase())) {
-          setUserRole('admin');
-        } else {
-          setUserRole('customer');
-        }
+    let authEvent = 0;
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      const currentEvent = ++authEvent;
+      if (!firebaseUser) {
+        setUserRole(null);
+        setRoleLoading(false);
+        setIsLoading(false);
+        return;
+      }
 
+      // Render the storefront immediately; resolve the admin role in the background.
+      setUserRole('customer');
+      setIsLoading(false);
+      setRoleLoading(true);
+
+      const syncUserInBackground = async () => {
         try {
-          const data = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
+          const res = await syncUser({
             display_name: firebaseUser.displayName,
             phone_number: firebaseUser.phoneNumber,
-            avatar: firebaseUser.photoURL
-          };
-          
-          // Đồng bộ với Database PostgreSQL và lấy role chuẩn từ DB
-          const res = await syncUser(data);
-          const dbRole = res?.data?.role || res?.role;
-          if (dbRole) {
-            setUserRole(dbRole);
+          });
+          if (currentEvent === authEvent) {
+            setUserRole(res?.data?.role || 'customer');
           }
         } catch (error) {
           console.error("Lỗi đồng bộ user API:", error);
+        } finally {
+          if (currentEvent === authEvent) setRoleLoading(false);
         }
-      } else {
-        setUserRole(null);
-      }
-      setIsLoading(false); 
+      };
+
+      syncUserInBackground();
     });
 
-    return () => unsubscribe(); 
+    return () => {
+      authEvent += 1;
+      unsubscribe();
+    };
   }, []);
 
   if (isLoading) {
     return <div style={{ textAlign: 'center', marginTop: '20vh' }}>Đang tải hệ thống...</div>;
   }
 
-  // --- CÁC COMPONENT BẢO VỆ ROUTE ---
-  const AdminRoute = ({ children }) => {
-    const firebaseUser = auth.currentUser;
-    const isMasterAdmin = firebaseUser?.email && ['minhhieu15thmay@gmail.com', 'admin_phu@gmail.com'].includes(firebaseUser.email.toLowerCase());
-    
-    if (userRole !== 'admin' && !isMasterAdmin) {
-      return <Navigate to="/" replace />;
-    }
-    return children;
-  };
-
-  const PrivateRoute = ({ children }) => {
-    if (!auth.currentUser && !userRole) {
-      return <Navigate to="/login" replace />;
-    }
-    return children;
-  };
-
   return (
     /* 2. Bọc toàn bộ các Router bên trong FavoritesProvider */
     <FavoritesProvider>
       <Routes>
           {/* LUỒNG 1: GIAO DIỆN KHÁCH HÀNG */}
-          <Route element={<MainLayout />}>
+          <Route element={<MainLayout userRole={userRole} />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/help" element={<HelpPage />} />
               <Route path="/product/:id" element={<ProductDetailPage />} />
               <Route path="/category/:id" element={<CategoryPage />} />
               <Route path="/sale" element={<SalePage/>} />
               <Route path="/best-sellers" element={<BestSellerPage/>} />
               <Route path="/new" element={<NewArrivalsPage/>} />
+              <Route path="/search" element={<SearchPage />} />
               
-              <Route path="/account" element={<PrivateRoute><UserInfoPage /></PrivateRoute>} />
-              <Route path="/cart" element={<PrivateRoute><CartPage/></PrivateRoute>} />
-              <Route path="/wishlist" element={<PrivateRoute><WishlistPage/></PrivateRoute>} />
-              <Route path="/orders" element={<PrivateRoute><OrdersPage/></PrivateRoute>} />
+              <Route path="/account" element={<PrivateRoute userRole={userRole}><UserInfoPage /></PrivateRoute>} />
+              <Route path="/cart" element={<PrivateRoute userRole={userRole}><CartPage/></PrivateRoute>} />
+              <Route path="/wishlist" element={<PrivateRoute userRole={userRole}><WishlistPage/></PrivateRoute>} />
+              <Route path="/orders" element={<PrivateRoute userRole={userRole}><OrdersPage/></PrivateRoute>} />
           </Route>
 
           {/* LUỒNG 2: GIAO DIỆN ADMIN */}
           <Route 
             path="/admin" 
             element={
-              <AdminRoute>
+              <Suspense fallback={<div role="status" style={{ minHeight: '40vh', display: 'grid', placeItems: 'center' }}>Đang tải trang quản trị...</div>}>
+              <AdminRoute userRole={userRole} roleLoading={roleLoading}>
                 <AdminLayout />
               </AdminRoute>
+              </Suspense>
             }
           >
               <Route index element={<AdminDashboard />} />
