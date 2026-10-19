@@ -53,6 +53,7 @@ const AdminProducts = () => {
   const [imageSearchPreview, setImageSearchPreview] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [retryingEmbeddings, setRetryingEmbeddings] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -327,6 +328,26 @@ const AdminProducts = () => {
     }
   };
 
+  const handleRetryFailedEmbeddings = async () => {
+    setRetryingEmbeddings(true);
+    try {
+      const headers = await getAuthHeader();
+      const response = await axiosClient.post('/admin/embeddings/retry-failed', {}, { headers });
+      const productsQueued = Number(response.data?.products ?? 0);
+      const imagesQueued = Number(response.data?.images ?? 0);
+
+      message.success(
+        `Đã đưa ${productsQueued} embedding sản phẩm và ${imagesQueued} embedding ảnh về hàng đợi.`
+      );
+      fetchData(pagination.current, pagination.pageSize);
+    } catch (error) {
+      console.error('Lỗi đưa embedding về hàng đợi:', error);
+      message.error('Không thể đưa embedding lỗi về hàng đợi. Vui lòng thử lại.');
+    } finally {
+      setRetryingEmbeddings(false);
+    }
+  };
+
   const columns = [
     {
       title: 'Ảnh',
@@ -431,6 +452,17 @@ const AdminProducts = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
         <h2>Quản lý Sản Phẩm</h2>
         <Space>
+          <Popconfirm
+            title="Thử lại embedding lỗi?"
+            description="Tất cả embedding sản phẩm và ảnh đang lỗi sẽ được đưa về hàng đợi xử lý."
+            onConfirm={handleRetryFailedEmbeddings}
+            okText="Thử lại"
+            cancelText="Hủy"
+          >
+            <Button icon={<ReloadOutlined />} loading={retryingEmbeddings}>
+              Thử lại embedding lỗi
+            </Button>
+          </Popconfirm>
           <Button icon={<ReloadOutlined />} onClick={() => fetchData(pagination.current, pagination.pageSize)} loading={loading}>
             Làm mới
           </Button>

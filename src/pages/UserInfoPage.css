@@ -47,6 +47,11 @@
   margin-bottom: 25px;
 }
 
+.profile-edit-button {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .profile-avatar {
   width: 80px;
   height: 80px;
@@ -111,6 +116,108 @@
   font-size: 13px;
 }
 
+.profile-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 20px;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #444;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.profile-field-full {
+  grid-column: 1 / -1;
+}
+
+.profile-field input {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  color: #222;
+  font: inherit;
+  font-weight: 400;
+  outline: none;
+}
+
+.profile-field input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.profile-field small {
+  color: #777;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.profile-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.profile-button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.profile-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.profile-button-primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.profile-button-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.profile-button-secondary {
+  border-color: #d1d5db;
+  background: #fff;
+  color: #444;
+}
+
+.profile-button-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.profile-feedback-error,
+.profile-feedback-success {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 14px;
+}
+
+.profile-feedback-error {
+  color: #cf1322;
+}
+
+.profile-feedback-success {
+  margin-top: 16px;
+  color: #16803c;
+}
+
 .user-info-loading, .user-info-error {
   text-align: center;
   padding: 100px 0;
@@ -126,4 +233,29 @@
 .user-info-error {
   color: #ff4d4f;
   font-weight: 500;
+}
+
+@media (max-width: 600px) {
+  .user-profile-card {
+    padding: 20px;
+  }
+
+  .profile-header-section {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .profile-edit-button {
+    margin-left: 0;
+  }
+
+  .profile-edit-form {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-field-full,
+  .profile-form-actions,
+  .profile-feedback-error {
+    grid-column: 1;
+  }
 }
