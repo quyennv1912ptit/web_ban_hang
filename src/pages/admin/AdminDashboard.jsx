@@ -34,42 +34,42 @@ const AdminDashboard = () => {
       <h2 style={{ marginBottom: 24 }}>Tổng quan hệ thống</h2>
       <Row gutter={[16, 16]}>
         <Col span={6}>
-          <Card variant="borderless" style={{ background: '#f6ffed' }} loading={loading}>
+          <Card variant="borderless" style={{ background: 'var(--theme-success-soft, #f6ffed)' }} loading={loading}>
             <Statistic 
               title="Tổng doanh thu" 
               value={stats.total_revenue} 
               suffix="VNĐ" 
-              styles={{ content: { color: '#3f8600' } }}
+              styles={{ content: { color: 'var(--theme-success, #3f8600)' } }}
               prefix={<DollarCircleOutlined />}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card variant="borderless" style={{ background: '#e6f7ff' }} loading={loading}>
+          <Card variant="borderless" style={{ background: 'var(--theme-accent-soft, #e6f7ff)' }} loading={loading}>
             <Statistic 
               title="Tổng đơn hàng" 
               value={stats.total_orders} 
-              styles={{ content: { color: '#1890ff' } }}
+              styles={{ content: { color: 'var(--theme-accent, #1890ff)' } }}
               prefix={<ShoppingCartOutlined />}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card variant="borderless" style={{ background: '#fff2e8' }} loading={loading}>
+          <Card variant="borderless" style={{ background: 'var(--theme-warning-soft, #fff2e8)' }} loading={loading}>
             <Statistic 
               title="Tổng sản phẩm" 
               value={stats.total_products} 
-              styles={{ content: { color: '#fa541c' } }}
+              styles={{ content: { color: 'var(--theme-price, #fa541c)' } }}
               prefix={<AppstoreOutlined />}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card variant="borderless" style={{ background: '#f9f0ff' }} loading={loading}>
+          <Card variant="borderless" style={{ background: 'var(--theme-purple-soft, #f9f0ff)' }} loading={loading}>
             <Statistic 
               title="Tổng người dùng" 
               value={stats.total_users} 
-              styles={{ content: { color: '#722ed1' } }}
+              styles={{ content: { color: 'var(--theme-purple, #722ed1)' } }}
               prefix={<UserOutlined />}
             />
           </Card>

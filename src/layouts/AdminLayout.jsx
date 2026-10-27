@@ -11,6 +11,7 @@ import {
   StarOutlined,
   AppstoreOutlined
 } from '@ant-design/icons';
+import ThemeToggle from '../components/ThemeToggle';
 
 const { Header, Sider, Content } = Layout;
 
@@ -40,7 +41,7 @@ const AdminLayout = () => {
         />
       </Sider>
       <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Header style={{ background: 'var(--theme-surface, #fff)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Button 
             type="primary" 
             ghost 
@@ -50,9 +51,12 @@ const AdminLayout = () => {
             Về trang khách hàng
           </Button>
 
-          <span style={{ fontWeight: '500' }}>Xin chào, Admin</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, lineHeight: 'normal' }}>
+            <ThemeToggle />
+            <span style={{ fontWeight: '500' }}>Xin chào, Admin</span>
+          </div>
         </Header>
-        <Content style={{ margin: '24px 16px', padding: 24, background: '#fff', minHeight: 280 }}>
+        <Content style={{ margin: '24px 16px', padding: 24, background: 'var(--theme-surface, #fff)', minHeight: 280 }}>
           <Suspense fallback={<div role="status" style={{ minHeight: 280, display: 'grid', placeItems: 'center' }}>Đang tải trang...</div>}>
             <Outlet />
           </Suspense>

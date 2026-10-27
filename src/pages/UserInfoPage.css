@@ -1,5 +1,5 @@
 .user-info-page {
-  background-color: #f5f5f5;
+  background-color: var(--theme-bg, #f5f5f5);
   min-height: 100vh;
   padding: 30px 0;
 }
@@ -32,7 +32,7 @@
 }
 
 .user-profile-card {
-  background-color: #fff;
+  background-color: var(--theme-surface, #fff);
   border-radius: 12px;
   padding: 30px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -42,7 +42,7 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid var(--theme-border, #f0f0f0);
   padding-bottom: 25px;
   margin-bottom: 25px;
 }
@@ -76,12 +76,12 @@
 .profile-intro h2 {
   margin: 0 0 5px 0;
   font-size: 22px;
-  color: #333;
+  color: var(--theme-text, #333);
 }
 
 .profile-email-sub {
   font-size: 14px;
-  color: #666;
+  color: var(--theme-muted, #666);
 }
 
 .profile-details-list {
@@ -94,23 +94,23 @@
   display: flex;
   justify-content: space-between;
   padding: 12px 0;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid var(--theme-border, #f8fafc);
   font-size: 15px;
 }
 
 .detail-label {
-  color: #666;
+  color: var(--theme-muted, #666);
   font-weight: 500;
 }
 
 .detail-value {
-  color: #333;
+  color: var(--theme-text, #333);
   font-weight: 600;
 }
 
 .role-badge {
-  background-color: #e0e7ff;
-  color: #2563eb;
+  background-color: var(--theme-accent-soft, #e0e7ff);
+  color: var(--theme-accent, #2563eb);
   padding: 2px 10px;
   border-radius: 12px;
   font-size: 13px;
@@ -126,7 +126,7 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
-  color: #444;
+  color: var(--theme-text, #444);
   font-size: 14px;
   font-weight: 600;
 }
@@ -140,9 +140,9 @@
   min-height: 42px;
   box-sizing: border-box;
   padding: 9px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--theme-border, #d1d5db);
   border-radius: 7px;
-  color: #222;
+  color: var(--theme-text, #222);
   font: inherit;
   font-weight: 400;
   outline: none;
@@ -154,7 +154,7 @@
 }
 
 .profile-field small {
-  color: #777;
+  color: var(--theme-muted, #777);
   font-size: 12px;
   font-weight: 400;
 }
@@ -193,13 +193,13 @@
 }
 
 .profile-button-secondary {
-  border-color: #d1d5db;
-  background: #fff;
-  color: #444;
+  border-color: var(--theme-border, #d1d5db);
+  background: var(--theme-surface, #fff);
+  color: var(--theme-text, #444);
 }
 
 .profile-button-secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  background: var(--theme-surface-raised, #f8fafc);
 }
 
 .profile-feedback-error,
@@ -210,20 +210,20 @@
 }
 
 .profile-feedback-error {
-  color: #cf1322;
+  color: var(--theme-danger, #cf1322);
 }
 
 .profile-feedback-success {
   margin-top: 16px;
-  color: #16803c;
+  color: var(--theme-success, #16803c);
 }
 
 .user-info-loading, .user-info-error {
   text-align: center;
   padding: 100px 0;
   font-size: 16px;
-  color: #666;
-  background-color: #fff;
+  color: var(--theme-muted, #666);
+  background-color: var(--theme-surface, #fff);
   border-radius: 8px;
   max-width: 900px;
   margin: 30px auto;
@@ -231,7 +231,7 @@
 }
 
 .user-info-error {
-  color: #ff4d4f;
+  color: var(--theme-danger, #ff4d4f);
   font-weight: 500;
 }
 

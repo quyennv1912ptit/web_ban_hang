@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
+import { getCategories } from '../api/categoriesApi';
 import ProductCard from '../components/home/ProductCard';
 import './SearchPage.css';
 
@@ -20,7 +21,15 @@ const SearchPage = () => {
     const query = (searchParams.get('q') || '').trim();
     const image = location.state?.image || null;
 
-    const [page, setPage] = useState(1);
+    const [pageState, setPageState] = useState({ query, image, value: 1 });
+    const page = pageState.query === query && pageState.image === image ? pageState.value : 1;
+    const setPage = (value) => setPageState((current) => ({
+        query,
+        image,
+        value: typeof value === 'function'
+            ? value(current.query === query && current.image === image ? current.value : 1)
+            : value,
+    }));
     const [reloadKey, setReloadKey] = useState(0);
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -34,7 +43,7 @@ const SearchPage = () => {
     useEffect(() => {
         let cancelled = false;
 
-        axiosClient.get('/categories/')
+        getCategories()
             .then((response) => {
                 if (!cancelled) setCategories(Array.isArray(response.data) ? response.data : []);
             })
@@ -44,10 +53,6 @@ const SearchPage = () => {
 
         return () => { cancelled = true; };
     }, []);
-
-    useEffect(() => {
-        setPage(1);
-    }, [query]);
 
     const handleApplyFilters = (event) => {
         event.preventDefault();
@@ -86,6 +91,7 @@ const SearchPage = () => {
 
     useEffect(() => {
         let cancelled = false;
+        const controller = new AbortController();
 
         const fetchResults = async () => {
             if (!query && !image) {
@@ -110,10 +116,11 @@ const SearchPage = () => {
                     const formData = new FormData();
                     formData.append('file', image, 'query-image.jpg');
                     if (query) formData.append('q', query);
-                    response = await axiosClient.post('/products/search/image', formData, { params });
+                    response = await axiosClient.post('/products/search/image', formData, { params, signal: controller.signal });
                 } else {
                     response = await axiosClient.get('/products/search', {
                         params: { ...params, q: query },
+                        signal: controller.signal,
                     });
                 }
 
@@ -135,7 +142,7 @@ const SearchPage = () => {
         };
 
         fetchResults();
-        return () => { cancelled = true; };
+        return () => { cancelled = true; controller.abort(); };
     }, [query, image, page, reloadKey, filters, location.key]);
 
     return (

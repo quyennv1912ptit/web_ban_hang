@@ -5,10 +5,10 @@
 
 .product-page {
     --product-primary: #2563eb;
-    --product-primary-light: #eff6ff;
-    --product-border: #e5e5e5;
-    --product-muted: #666;
-    --product-text: #222;
+    --product-primary-light: var(--theme-accent-soft, #eff6ff);
+    --product-border: var(--theme-border, #e5e5e5);
+    --product-muted: var(--theme-muted, #666);
+    --product-text: var(--theme-text, #222);
     --product-danger: #dc2626;
     --product-warning: #f59e0b;
 
@@ -34,7 +34,7 @@
 }
 
 .product-breadcrumb a {
-    color: var(--product-primary);
+    color: var(--theme-accent, var(--product-primary));
     text-decoration: none;
 }
 
@@ -56,7 +56,7 @@
     padding: 24px;
     border: 1px solid var(--product-border);
     border-radius: 10px;
-    background: #fff;
+    background: var(--theme-surface, #fff);
     box-sizing: border-box;
 }
 
@@ -75,7 +75,7 @@
 
     border: 1px solid var(--product-border);
     border-radius: 8px;
-    background: #fafafa;
+    background: var(--theme-surface-raised, #fafafa);
 }
 
 .gallery-main img {
@@ -115,7 +115,7 @@
     border-radius: 6px;
     overflow: hidden;
 
-    background: #fff;
+    background: var(--theme-surface, #fff);
     cursor: pointer;
 
     transition: border-color 0.2s ease;
@@ -173,7 +173,7 @@
 }
 
 .divider {
-    color: #ccc;
+    color: var(--theme-disabled-text, #ccc);
 }
 
 .meta-sold {
@@ -189,11 +189,11 @@
 
     padding: 16px 18px;
     border-radius: 8px;
-    background: #fafafa;
+    background: var(--theme-surface-raised, #fafafa);
 }
 
 .current-price {
-    color: var(--product-danger);
+    color: var(--theme-danger, var(--product-danger));
     font-size: 32px;
     font-weight: 700;
     line-height: 1;
@@ -249,7 +249,7 @@
     border-radius: 5px;
 
     color: var(--product-text);
-    background: #fff;
+    background: var(--theme-surface, #fff);
 
     font-size: 14px;
     cursor: pointer;
@@ -263,7 +263,7 @@
 .attr-btn:hover,
 .attr-btn.active {
     border-color: var(--product-primary);
-    color: var(--product-primary);
+    color: var(--theme-accent, var(--product-primary));
 }
 
 .attr-btn.active {
@@ -297,19 +297,19 @@
     justify-content: center;
 
     border: 0;
-    background: #fff;
+    background: var(--theme-surface, #fff);
     color: var(--product-text);
 
     cursor: pointer;
 }
 
 .qty-control button:hover:not(:disabled) {
-    background: #f5f5f5;
+    background: var(--theme-bg, #f5f5f5);
 }
 
 .qty-control button:disabled {
-    color: #ccc;
-    background: #f8f8f8;
+    color: var(--theme-disabled-text, #ccc);
+    background: var(--theme-surface-raised, #f8f8f8);
     cursor: not-allowed;
 }
 
@@ -323,7 +323,7 @@
     border-right: 1px solid var(--product-border);
 
     outline: 0;
-    background: #fff;
+    background: var(--theme-surface, #fff);
 
     color: var(--product-text);
     text-align: center;
@@ -369,11 +369,11 @@
 
     border: 1px solid var(--product-primary);
     background: var(--product-primary-light);
-    color: var(--product-primary);
+    color: var(--theme-accent, var(--product-primary));
 }
 
 .btn-add-cart:hover {
-    background: #dbeafe;
+    background: var(--theme-accent-soft, #dbeafe);
 }
 
 .btn-buy-now {
@@ -396,7 +396,7 @@
 
     border: 1px solid var(--product-border);
     border-radius: 10px;
-    background: #fff;
+    background: var(--theme-surface, #fff);
 }
 
 .section-title {
@@ -455,7 +455,7 @@
 
     padding: 18px;
     border-radius: 8px;
-    background: #fafafa;
+    background: var(--theme-surface-raised, #fafafa);
 }
 
 .reviews-score strong {
@@ -478,7 +478,7 @@
 }
 
 .review-star {
-    color: #d1d5db;
+    color: var(--theme-disabled-text, #d1d5db);
     flex: 0 0 auto;
 }
 
@@ -514,7 +514,7 @@
     overflow: hidden;
 
     border-radius: 999px;
-    background: #ececec;
+    background: var(--theme-disabled-bg, #ececec);
 }
 
 .rating-row__bar span {
@@ -538,7 +538,7 @@
 
     border: 1px solid var(--product-border);
     border-radius: 8px;
-    background: #fafafa;
+    background: var(--theme-surface-raised, #fafafa);
 }
 
 .review-form-card h3 {
@@ -575,7 +575,7 @@
     border: 0;
     background: transparent;
 
-    color: #d1d5db;
+    color: var(--theme-disabled-text, #d1d5db);
     cursor: pointer;
 }
 
@@ -603,7 +603,7 @@
     border-radius: 6px;
     outline: none;
 
-    background: #fff;
+    background: var(--theme-surface, #fff);
     color: var(--product-text);
 
     font-family: inherit;
@@ -684,7 +684,7 @@
 
     border-radius: 50%;
     background: var(--product-primary-light);
-    color: var(--product-primary);
+    color: var(--theme-accent, var(--product-primary));
 
     font-size: 15px;
     font-weight: 700;

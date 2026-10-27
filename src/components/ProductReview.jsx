@@ -147,22 +147,22 @@ const ProductReviews = ({ productId }) => {
     : 5.0;
 
   return (
-    <div style={{ marginTop: '40px', background: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+    <div style={{ marginTop: '40px', background: 'var(--theme-surface, #fff)', padding: '24px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
       <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>
         Đánh giá & Nhận xét sản phẩm
       </h2>
 
       {/* TỔNG QUAN RATING */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '30px', padding: '16px', background: '#fafafa', borderRadius: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '30px', padding: '16px', background: 'var(--theme-surface-raised, #fafafa)', borderRadius: '8px' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#ff4d4f' }}>{avgRating}</div>
+          <div style={{ fontSize: '36px', fontWeight: 'bold', color: 'var(--theme-danger, #ff4d4f)' }}>{avgRating}</div>
           <Rate disabled allowHalf value={Number(avgRating)} style={{ fontSize: '16px' }} />
-          <div style={{ color: '#8c8c8c', marginTop: '4px' }}>({reviews.length} đánh giá)</div>
+          <div style={{ color: 'var(--theme-muted, #8c8c8c)', marginTop: '4px' }}>({reviews.length} đánh giá)</div>
         </div>
       </div>
 
       {/* FORM VIẾT ĐÁNH GIÁ */}
-      <div style={{ marginBottom: '32px', borderBottom: '1px solid #f0f0f0', paddingBottom: '24px' }}>
+      <div style={{ marginBottom: '32px', borderBottom: '1px solid var(--theme-border, #f0f0f0)', paddingBottom: '24px' }}>
         <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>Viết đánh giá của bạn</h3>
         
         {/* Chọn đơn hàng đã mua */}
@@ -220,17 +220,17 @@ const ProductReviews = ({ productId }) => {
       ) : reviews.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {reviews.map((item) => (
-            <div key={item.id} style={{ display: 'flex', gap: '12px', paddingBottom: '16px', borderBottom: '1px solid #f5f5f5' }}>
+            <div key={item.id} style={{ display: 'flex', gap: '12px', paddingBottom: '16px', borderBottom: '1px solid var(--theme-border, #f5f5f5)' }}>
               <Avatar icon={<UserOutlined />} size={40} />
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: '600' }}>Khách hàng</span>
-                  <span style={{ color: '#bfbfbf', fontSize: '12px' }}>
+                  <span style={{ color: 'var(--theme-muted, #bfbfbf)', fontSize: '12px' }}>
                     {item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN') : ''}
                   </span>
                 </div>
                 <Rate disabled value={item.rating} style={{ fontSize: '12px', margin: '4px 0' }} />
-                <p style={{ margin: '4px 0 0 0', color: '#434343' }}>{item.comment}</p>
+                <p style={{ margin: '4px 0 0 0', color: 'var(--theme-text, #434343)' }}>{item.comment}</p>
               </div>
 
               {/* Nút xóa nếu đúng tác giả */}
@@ -243,7 +243,7 @@ const ProductReviews = ({ productId }) => {
           ))}
         </div>
       ) : (
-        <div style={{ textAlign: 'center', color: '#8c8c8c', padding: '20px 0' }}>
+        <div style={{ textAlign: 'center', color: 'var(--theme-muted, #8c8c8c)', padding: '20px 0' }}>
           Chưa có đánh giá nào cho sản phẩm này.
         </div>
       )}

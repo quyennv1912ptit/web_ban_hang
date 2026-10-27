@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axiosClient from '../api/axiosClient';
+import { getCategories } from '../api/categoriesApi';
 import CategoryGrid from '../components/home/CategoryGrid';
 import ProductCard from '../components/home/ProductCard';
 import './HomePage.css';
@@ -16,25 +17,32 @@ const HomePage = () => {
 
     // 2. Gọi API khi trang chủ vừa tải
     useEffect(() => {
+        const controller = new AbortController();
+        getCategories().then((response) => {
+            if (!controller.signal.aborted) setCategories(response.data);
+        }).catch((error) => {
+            if (!controller.signal.aborted) console.error('Lỗi tải danh mục:', error);
+        });
         const fetchHomeData = async () => {
             try {
                 setLoading(true);
-                const [catRes, prodRes] = await Promise.all([
-                    axiosClient.get('/categories/'),
-                    axiosClient.get('/products/', { params: { page: 1, size: PAGE_SIZE } }),
-                ]);
-                setCategories(Array.isArray(catRes.data) ? catRes.data : []);
+                const prodRes = await axiosClient.get('/products/', {
+                    signal: controller.signal, params: { page: 1, size: PAGE_SIZE },
+                });
+                if (controller.signal.aborted) return;
                 setProducts(prodRes.data?.items || []);
                 setPage(Number(prodRes.data?.page || 1));
                 setHasMore(Number(prodRes.data?.page || 1) < Number(prodRes.data?.pages || 1));
             } catch (error) {
+                if (controller.signal.aborted) return;
                 console.error("Lỗi lấy dữ liệu trang chủ:", error);
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
 
         fetchHomeData();
+        return () => controller.abort();
     }, []);
 
     const loadMore = async () => {

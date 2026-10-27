@@ -12,23 +12,27 @@ const SalePage = () => {
     const [sortOption, setSortOption] = useState('newest');
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchSaleProducts = async () => {
             try {
                 setLoading(true);
                 setError(null);
                 const params = { on_sale: true, size: 50 };
                 if (sortOption !== 'biggest_discount') params.sort = sortOption;
-                const res = await axiosClient.get('/products/', { params });
+                const res = await axiosClient.get('/products/', { params, signal: controller.signal });
+                if (controller.signal.aborted) return;
                 setProducts(res.data.items || res.data || []);
             } catch (err) {
+                if (controller.signal.aborted) return;
                 console.error("Lỗi khi tải sản phẩm khuyến mãi:", err);
                 setError("Không thể tải danh sách khuyến mãi.");
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
 
         fetchSaleProducts();
+        return () => controller.abort();
     }, [sortOption]);
 
     // 2. Logic tự động sắp xếp sản phẩm khi chọn bộ lọc

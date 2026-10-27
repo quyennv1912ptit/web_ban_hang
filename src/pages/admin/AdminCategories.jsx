@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Space, Modal, Form, Input, Popconfirm, message, Card } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import axiosClient from '../../api/axiosClient';
+import { invalidateCategories } from '../../api/categoriesApi';
 import { auth } from '../../config/firebase';
 
 const AdminCategories = () => {
@@ -63,6 +64,7 @@ const AdminCategories = () => {
         message.success("Thêm danh mục mới thành công!");
       }
 
+      invalidateCategories();
       setIsModalOpen(false);
       fetchCategories();
     } catch (error) {
@@ -80,6 +82,7 @@ const AdminCategories = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      invalidateCategories();
       message.success("Xóa danh mục thành công!");
       fetchCategories();
     } catch (error) {

@@ -1,13 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import axiosClient from '../api/axiosClient';
 import { toast } from 'react-toastify';
 import { auth } from '../config/firebase';
+import { useLocation } from 'react-router-dom';
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
     const [cartItems, setCartItems] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const requestVersion = useRef(0);
+    const pendingRequests = useRef(new Map());
+    const { pathname } = useLocation();
+    const pathnameRef = useRef(pathname);
+    useLayoutEffect(() => { pathnameRef.current = pathname; }, [pathname]);
 
     // Hàm tiện ích lấy Firebase Token để gửi header Authorization cho FastAPI
     const getAuthHeader = async () => {
@@ -18,47 +25,78 @@ export const CartProvider = ({ children }) => {
     };
 
     // 1. Tải danh sách giỏ hàng từ Backend
-    const fetchCart = async () => {
-        try {
-            const headers = await getAuthHeader();
-            if (!headers) {
-                setCartItems([]); // Chưa đăng nhập thì giỏ rỗng
-                return;
-            }
-            setLoading(true);
-            const res = await axiosClient.get('/cart/', { headers });
-            const items = Array.isArray(res.data) ? res.data : [];
-            const hydratedItems = await Promise.all(items.map(async (item) => {
-                try {
-                    const productRes = await axiosClient.get(`/products/${item.product_id}`, { headers });
-                    return { ...item, product: productRes.data };
-                } catch (error) {
-                    console.warn(`Không tải được sản phẩm trong giỏ ${item.product_id}:`, error);
-                    return {
-                        ...item,
-                        product: { id: item.product_id, name: 'Sản phẩm không còn khả dụng', price: 0 },
-                    };
-                }
-            }));
-            setCartItems(hydratedItems);
-        } catch (error) {
-            console.error("Lỗi lấy giỏ hàng:", error);
-        } finally {
+    const fetchCart = useCallback((hydrate = true) => {
+        const user = auth.currentUser;
+        if (!user) {
+            setCartItems([]);
             setLoading(false);
+            return Promise.resolve();
         }
-    };
+        const key = `${user.uid}:${hydrate}`;
+        if (pendingRequests.current.has(key)) return pendingRequests.current.get(key);
+        const version = ++requestVersion.current;
+        const isCurrent = () => version === requestVersion.current && auth.currentUser?.uid === user.uid;
+        setLoading(true);
+        setError('');
+        const request = (async () => {
+            try {
+                const res = await axiosClient.get('/cart/');
+                if (!isCurrent()) return;
+                const items = Array.isArray(res.data) ? res.data : [];
+                // The header only needs quantities. Product details load on the cart page.
+                if (!hydrate) {
+                    setCartItems(current => items.map(item => ({
+                        ...item,
+                        product: current.find(existing => String(existing.product_id) === String(item.product_id))?.product,
+                    })));
+                    return;
+                }
+                const hydratedItems = await Promise.all(items.map(async (item) => {
+                    try {
+                        const productRes = await axiosClient.get(`/products/${item.product_id}`);
+                        return { ...item, product: productRes.data };
+                    } catch (error) {
+                        console.warn(`Không tải được sản phẩm trong giỏ ${item.product_id}:`, error);
+                        return {
+                            ...item,
+                            product: { id: item.product_id, name: 'Sản phẩm không còn khả dụng', price: 0 },
+                        };
+                    }
+                }));
+                if (isCurrent()) setCartItems(hydratedItems);
+            } catch (error) {
+                if (isCurrent()) setError('Không thể tải giỏ hàng. Vui lòng thử lại.');
+                console.error("Lỗi lấy giỏ hàng:", error);
+            } finally {
+                if (isCurrent()) setLoading(false);
+            }
+        })().finally(() => {
+            if (pendingRequests.current.get(key) === request) pendingRequests.current.delete(key);
+        });
+        pendingRequests.current.set(key, request);
+        return request;
+    }, []);
 
     // Tự động tải lại giỏ hàng mỗi khi trạng thái đăng nhập thay đổi
     useEffect(() => {
+        const requests = pendingRequests.current;
         const unsubscribe = auth.onAuthStateChanged((user) => {
+            requestVersion.current += 1;
+            pendingRequests.current.clear();
+            setCartItems([]);
+            setError('');
             if (user) {
-                fetchCart();
+                fetchCart(pathnameRef.current === '/cart');
             } else {
-                setCartItems([]);
+                setLoading(false);
             }
         });
-        return () => unsubscribe();
-    }, []);
+        return () => {
+            requestVersion.current += 1;
+            requests.clear();
+            unsubscribe();
+        };
+    }, [fetchCart]);
 
     // 2. Thêm sản phẩm vào giỏ (ĐÃ SỬA: Hỗ trợ nhận trực tiếp productId là chuỗi)
     const addToCart = async (productOrId, quantity = 1) => {
@@ -77,14 +115,18 @@ export const CartProvider = ({ children }) => {
                 return;
             }
 
+            const userId = auth.currentUser?.uid;
             await axiosClient.post(
                 '/cart/',
                 { product_id: finalProductId, quantity },
                 { headers }
             );
 
+            if (auth.currentUser?.uid !== userId) return;
+            requestVersion.current += 1;
+            pendingRequests.current.clear();
             toast.success('Đã thêm vào giỏ hàng');
-            await fetchCart(); // Cập nhật lại giỏ hàng
+            await fetchCart(pathnameRef.current === '/cart');
         } catch (error) {
             console.error("Lỗi thêm giỏ hàng:", error);
             
@@ -110,13 +152,19 @@ export const CartProvider = ({ children }) => {
             const headers = await getAuthHeader();
             if (!headers) return;
 
-            await axiosClient.put(
+            const userId = auth.currentUser?.uid;
+            const response = await axiosClient.put(
                 `/cart/${productId}`,
                 { quantity: newQuantity },
                 { headers }
             );
 
-            await fetchCart();
+            if (auth.currentUser?.uid !== userId) return;
+            requestVersion.current += 1;
+            pendingRequests.current.clear();
+            setLoading(false);
+            setCartItems(items => items.map(item => String(item.product_id) === String(productId)
+                ? { ...item, ...response.data } : item));
         } catch (error) {
             console.error("Lỗi cập nhật số lượng:", error);
             const msg = error.response?.data?.detail || 'Không thể cập nhật số lượng';
@@ -130,9 +178,14 @@ export const CartProvider = ({ children }) => {
             const headers = await getAuthHeader();
             if (!headers) return;
 
+            const userId = auth.currentUser?.uid;
             await axiosClient.delete(`/cart/${productId}`, { headers });
+            if (auth.currentUser?.uid !== userId) return;
+            requestVersion.current += 1;
+            pendingRequests.current.clear();
+            setLoading(false);
             toast.info('Đã xóa sản phẩm khỏi giỏ');
-            await fetchCart();
+            setCartItems(items => items.filter(item => String(item.product_id) !== String(productId)));
         } catch (error) {
             console.error("Lỗi xóa sản phẩm:", error);
             toast.error('Xóa sản phẩm thất bại');
@@ -145,7 +198,12 @@ export const CartProvider = ({ children }) => {
             const headers = await getAuthHeader();
             if (!headers) return;
 
+            const userId = auth.currentUser?.uid;
             await axiosClient.delete('/cart/', { headers });
+            if (auth.currentUser?.uid !== userId) return;
+            requestVersion.current += 1;
+            pendingRequests.current.clear();
+            setLoading(false);
             setCartItems([]);
             toast.info('Đã làm trống giỏ hàng');
         } catch (error) {
@@ -165,6 +223,7 @@ export const CartProvider = ({ children }) => {
             value={{
                 cartItems,
                 loading,
+                error,
                 addToCart,
                 updateQuantity,
                 removeFromCart,

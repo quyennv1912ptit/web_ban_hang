@@ -11,11 +11,11 @@
   gap: 10px;
   margin-bottom: 24px;
   font-size: 24px;
-  color: #333;
+  color: var(--theme-text, #333);
 }
 
 .orders-page__table-container {
-  background: #fff;
+  background: var(--theme-surface, #fff);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -23,6 +23,6 @@
 
 /* Custom thêm một chút cho bảng Ant Design nếu cần */
 .orders-page__table-container .ant-table-thead > tr > th {
-  background-color: #f8f9fa;
+  background-color: var(--theme-surface-raised, #f8f9fa);
   font-weight: 600;
 }

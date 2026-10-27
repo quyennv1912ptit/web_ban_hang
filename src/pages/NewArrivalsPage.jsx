@@ -12,20 +12,24 @@ const NewArrivalsPage = () => {
     const [sortOrder, setSortOrder] = useState('default');
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchNewArrivals = async () => {
             try {
                 setLoading(true);
-                const res = await axiosClient.get('/products/');
+                const res = await axiosClient.get('/products/', { params: { sort: 'newest', size: 50 }, signal: controller.signal });
+                if (controller.signal.aborted) return;
                 setProducts(res.data.items || res.data || []);
             } catch (err) {
+                if (controller.signal.aborted) return;
                 console.error("Lỗi khi tải sản phẩm mới về:", err);
                 setError("Không thể tải danh sách sản phẩm mới.");
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
 
         fetchNewArrivals();
+        return () => controller.abort();
     }, []);
 
     // Logic sắp xếp giá ngay trên Frontend

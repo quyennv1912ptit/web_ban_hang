@@ -448,7 +448,7 @@ const AdminProducts = () => {
   ];
 
   return (
-    <div style={{ padding: 24, background: '#fff', borderRadius: 8 }}>
+    <div style={{ padding: 24, background: 'var(--theme-surface, #fff)', borderRadius: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
         <h2>Quản lý Sản Phẩm</h2>
         <Space>
@@ -481,9 +481,9 @@ const AdminProducts = () => {
           alignItems: 'end',
           marginBottom: 16,
           padding: 16,
-          border: '1px solid #f0f0f0',
+          border: '1px solid var(--theme-border, #f0f0f0)',
           borderRadius: 8,
-          background: '#fafafa',
+          background: 'var(--theme-surface-raised, #fafafa)',
         }}
       >
         <div>
@@ -588,7 +588,7 @@ const AdminProducts = () => {
           <Button type="primary" htmlType="submit" loading={loading}>Tìm kiếm / Lọc</Button>
           <Button htmlType="button" onClick={handleClearFilters}>Xóa lọc</Button>
         </div>
-        {filterError && <div role="alert" style={{ gridColumn: '1 / -1', color: '#cf1322' }}>{filterError}</div>}
+        {filterError && <div role="alert" style={{ gridColumn: '1 / -1', color: 'var(--theme-danger, #cf1322)' }}>{filterError}</div>}
       </form>
 
       <Table 

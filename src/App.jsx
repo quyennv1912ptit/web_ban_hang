@@ -10,6 +10,7 @@ import { FavoritesProvider } from './contexts/FavoritesContext'; // 1. Import Fa
 // --- Layouts ---
 import MainLayout from './layouts/MainLayout';
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+const AntThemeLayout = lazy(() => import('./layouts/AntThemeLayout'));
 
 // Keep the home route in the entry chunk; load other routes when first visited.
 import HomePage from './pages/HomePage';
@@ -108,7 +109,6 @@ const App = () => {
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/help" element={<HelpPage />} />
-              <Route path="/product/:id" element={<ProductDetailPage />} />
               <Route path="/category/:id" element={<CategoryPage />} />
               <Route path="/sale" element={<SalePage/>} />
               <Route path="/best-sellers" element={<BestSellerPage/>} />
@@ -116,9 +116,12 @@ const App = () => {
               <Route path="/search" element={<SearchPage />} />
               
               <Route path="/account" element={<PrivateRoute userRole={userRole}><UserInfoPage /></PrivateRoute>} />
-              <Route path="/cart" element={<PrivateRoute userRole={userRole}><CartPage/></PrivateRoute>} />
-              <Route path="/wishlist" element={<PrivateRoute userRole={userRole}><WishlistPage/></PrivateRoute>} />
-              <Route path="/orders" element={<PrivateRoute userRole={userRole}><OrdersPage/></PrivateRoute>} />
+              <Route element={<AntThemeLayout />}>
+                <Route path="/product/:id" element={<ProductDetailPage />} />
+                <Route path="/cart" element={<PrivateRoute userRole={userRole}><CartPage/></PrivateRoute>} />
+                <Route path="/wishlist" element={<PrivateRoute userRole={userRole}><WishlistPage/></PrivateRoute>} />
+                <Route path="/orders" element={<PrivateRoute userRole={userRole}><OrdersPage/></PrivateRoute>} />
+              </Route>
           </Route>
 
           {/* LUỒNG 2: GIAO DIỆN ADMIN */}
@@ -127,7 +130,7 @@ const App = () => {
             element={
               <Suspense fallback={<div role="status" style={{ minHeight: '40vh', display: 'grid', placeItems: 'center' }}>Đang tải trang quản trị...</div>}>
               <AdminRoute userRole={userRole} roleLoading={roleLoading}>
-                <AdminLayout />
+                <AntThemeLayout><AdminLayout /></AntThemeLayout>
               </AdminRoute>
               </Suspense>
             }

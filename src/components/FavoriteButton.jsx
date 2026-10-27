@@ -40,7 +40,7 @@ const FavoriteButton = ({ productId }) => {
       onClick={handleToggle}
       disabled={submitting}
       style={{
-        background: 'white',
+        background: 'var(--theme-surface-raised, white)',
         border: 'none',
         borderRadius: '50%',
         width: '32px',

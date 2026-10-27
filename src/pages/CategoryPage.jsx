@@ -16,29 +16,33 @@ function CategoryPage() {
   const [sortOption, setSortOption] = useState('best_selling');
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchCategoryData = async () => {
       try {
         setLoading(true);
         setError(null);
 
         const [categoryRes, productsRes] = await Promise.all([
-          axiosClient.get(`/categories/${id}`),
-          axiosClient.get('/products/', { params: { category_id: id, sort: sortOption, size: 50 } }),
+          axiosClient.get(`/categories/${id}`, { signal: controller.signal }),
+          axiosClient.get('/products/', { params: { category_id: id, sort: sortOption, size: 50 }, signal: controller.signal }),
         ]);
+        if (controller.signal.aborted) return;
         setCategoryName(categoryRes.data.name || 'Danh mục');
         setProducts(productsRes.data?.items || []);
 
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error("Lỗi khi kết nối backend:", err);
         setError("Không thể tải dữ liệu. Vui lòng kiểm tra lại kết nối.");
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     if (id) {
       fetchCategoryData();
     }
+    return () => controller.abort();
   }, [id, sortOption]);
 
   if (loading) {

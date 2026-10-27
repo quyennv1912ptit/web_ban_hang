@@ -61,7 +61,7 @@ const AdminUsers = () => {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      render: (id) => <span style={{ fontSize: '12px', color: '#888' }}>{String(id).substring(0, 8)}...</span>
+      render: (id) => <span style={{ fontSize: '12px', color: 'var(--theme-muted, #888)' }}>{String(id).substring(0, 8)}...</span>
     },
     {
       title: 'Email',

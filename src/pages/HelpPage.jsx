@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const HelpPage = () => (
-    <section style={{ maxWidth: 860, margin: '32px auto', padding: 24, background: '#fff', borderRadius: 10 }}>
+    <section className="help-page" style={{ maxWidth: 860, margin: '32px auto', padding: 24 }}>
         <h1>Trợ giúp</h1>
         <p>Chọn một mục bên dưới để tiếp tục mua sắm hoặc quản lý tài khoản:</p>
         <ul style={{ lineHeight: 2 }}>

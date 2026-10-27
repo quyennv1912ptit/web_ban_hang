@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FiMinus, FiPlus, FiShoppingCart, FiStar, FiSend } from 'react-icons/fi';
 import axiosClient from '../api/axiosClient';
@@ -10,7 +10,7 @@ import './ProductDetailPage.css';
 const ProductDetailPage = () => {
     const { id: paramProductId } = useParams();
     const navigate = useNavigate();
-    const { addToCart, fetchCart } = useCart(); 
+    const { addToCart } = useCart();
 
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -26,18 +26,20 @@ const ProductDetailPage = () => {
     const [userOrderId, setUserOrderId] = useState(null);
 
     // 1. Tải danh sách đánh giá từ Backend
-    const fetchReviews = async () => {
+    const fetchReviews = useCallback(async (signal) => {
         try {
-            const { data } = await axiosClient.get(`/products/${paramProductId}/reviews`);
+            const { data } = await axiosClient.get(`/products/${paramProductId}/reviews`, { signal });
+            if (signal?.aborted) return;
             // Backend sử dụng fastapi-pagination nên mảng nằm trong data.items
             setReviews(data.items || data || []);
         } catch (error) {
+            if (signal?.aborted) return;
             console.error("Lỗi tải danh sách đánh giá:", error);
         }
-    };
+    }, [paramProductId]);
 
     // 2. Kiểm tra xem user hiện tại có đơn hàng đã nhận (delivered) chứa sản phẩm này không
-    const checkEligibleOrder = async () => {
+    const checkEligibleOrder = useCallback(async (signal) => {
         setUserOrderId(null);
         const user = auth.currentUser;
         if (!user) return;
@@ -46,51 +48,67 @@ const ProductDetailPage = () => {
             const { data } = await axiosClient.get('/orders/', {
                 params: { status: 'delivered', size: 100 },
                 headers: { Authorization: `Bearer ${token}` },
+                signal,
             });
             const ordersList = data.items || [];
-            const orderDetails = await Promise.all(ordersList.map(async (order) => {
-                try {
-                    const detail = await axiosClient.get(`/orders/${order.id}`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
-                    return detail.data;
-                } catch (error) {
-                    console.warn(`Không tải được đơn hàng ${order.id}:`, error);
-                    return null;
-                }
-            }));
+            // Limit background requests and stop as soon as an eligible order is found.
+            for (let offset = 0; offset < ordersList.length; offset += 5) {
+                if (signal?.aborted || auth.currentUser?.uid !== user.uid) return;
+                const orderDetails = await Promise.all(ordersList.slice(offset, offset + 5).map(async (order) => {
+                    try {
+                        const detail = await axiosClient.get(`/orders/${order.id}`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                            signal,
+                        });
+                        return detail.data;
+                    } catch (error) {
+                        if (signal?.aborted) return null;
+                        console.warn(`Không tải được đơn hàng ${order.id}:`, error);
+                        return null;
+                    }
+                }));
 
-            const eligibleOrder = orderDetails.find(order =>
-                order?.items?.some(item => String(item.product_id) === String(paramProductId))
-            );
+                const eligibleOrder = orderDetails.find(order =>
+                    order?.items?.some(item => String(item.product_id) === String(paramProductId))
+                );
             
-            if (eligibleOrder) {
-                setUserOrderId(eligibleOrder.id);
+                if (signal?.aborted || auth.currentUser?.uid !== user.uid) return;
+                if (eligibleOrder) {
+                    setUserOrderId(eligibleOrder.id);
+                    return;
+                }
             }
         } catch (error) {
+            if (signal?.aborted) return;
             console.error("Lỗi kiểm tra đơn hàng:", error);
         }
-    };
+    }, [paramProductId]);
 
     useEffect(() => {
         if (!paramProductId) return;
+        const controller = new AbortController();
+        setReviews([]);
+        setQuantity(1);
+        fetchReviews(controller.signal);
+        checkEligibleOrder(controller.signal);
         (async () => {
             try {
                 setLoading(true);
-                const { data } = await axiosClient.get(`/products/${paramProductId}`);
+                const { data } = await axiosClient.get(`/products/${paramProductId}`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 setProduct(data);
                 setMainImage(data.images?.[0]?.image_url || data.image_url || data.image || 'https://via.placeholder.com/600x600?text=No+Image');
-                if (data.attributes?.color?.length) setSelectedColor(data.attributes.color[0]);
-                
-                await fetchReviews();
-                await checkEligibleOrder();
+                setSelectedColor(data.attributes?.color?.[0] || '');
             } catch {
+                if (controller.signal.aborted) return;
+                setProduct(null);
                 message.error("Không thể tải thông tin sản phẩm!"); 
             } finally { 
-                setLoading(false); 
+                if (!controller.signal.aborted) setLoading(false);
             }
         })();
-    }, [paramProductId]);
+        return () => controller.abort();
+    }, [paramProductId, fetchReviews, checkEligibleOrder]);
 
     const discountPercent = useMemo(() => (!product || product.original_price <= product.price) ? 0 : Math.round((1 - product.price / product.original_price) * 100), [product]);
 
@@ -109,7 +127,6 @@ const ProductDetailPage = () => {
             setSubmitting(true);
             await addToCart(idToBuy, quantity);
             if (isBuyNow) {
-                if (typeof fetchCart === 'function') await fetchCart();
                 navigate('/cart', { state: { buyNowId: String(idToBuy), buyNow: true } });
             }
         } catch (error) {

@@ -1,13 +1,84 @@
+:root {
+    color-scheme: light;
+    --primary: #2563eb;
+    --border: var(--theme-border, #f0f0f0);
+    --muted: var(--theme-muted, #777);
+    background: var(--theme-bg, #f5f5f5);
+}
+
+html[data-theme='dark'] {
+    color-scheme: dark;
+    --theme-bg: #111318;
+    --theme-surface: #1b1e25;
+    --theme-surface-raised: #232731;
+    --theme-text: #e8eaf0;
+    --theme-muted: #b0b8c7;
+    --theme-disabled-text: #7f899b;
+    --theme-disabled-bg: #303541;
+    --theme-border: #363b47;
+    --theme-accent: #82aaff;
+    --theme-accent-soft: #23324d;
+    --theme-danger: #ff8589;
+    --theme-danger-soft: #3c242a;
+    --theme-price: #ff997c;
+    --theme-success: #91d58b;
+    --theme-success-soft: #213725;
+    --theme-warning-soft: #382b1e;
+    --theme-purple: #c0a5f5;
+    --theme-purple-soft: #30263f;
+    --toastify-color-light: var(--theme-surface);
+    --toastify-text-color-light: var(--theme-text);
+}
+
 body {
     margin: 0;
     font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: #f5f5f5;
-    color: #222;
+    background: var(--theme-bg, #f5f5f5);
+    color: var(--theme-text, #222);
 }
 
-button,
-input,
-select,
-textarea {
+:where(button, input, select, textarea) {
     font-family: inherit;
+    color: inherit;
+}
+
+:where(a) { color: var(--theme-accent, #2563eb); }
+
+/* Explicit dimensions keep the control independent of the admin header's line-height. */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    flex: 0 0 36px;
+    box-sizing: border-box;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--theme-muted, #666);
+    font-size: 20px;
+    line-height: 1;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.theme-toggle svg { display: block; flex-shrink: 0; }
+.theme-toggle:hover {
+    background: var(--theme-accent-soft, #eff6ff);
+    color: var(--theme-accent, #2563eb);
+}
+.theme-toggle:focus-visible {
+    outline: 2px solid var(--theme-accent, #2563eb);
+    outline-offset: 3px;
+}
+
+.help-page { background: var(--theme-surface, #fff); border-radius: 10px; }
+.Toastify__close-button--light { color: var(--theme-text, #000); }
+
+@media (prefers-reduced-motion: no-preference) {
+    .theme-toggle { transition: background-color 160ms ease, color 160ms ease; }
 }

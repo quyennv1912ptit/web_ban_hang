@@ -164,7 +164,7 @@ const OrdersPage = () => {
             <p><strong>Mã đơn hàng:</strong> {selectedOrder.id}</p>
             <p><strong>Trạng thái:</strong> {selectedOrder.status}</p>
             <p><strong>Phí vận chuyển:</strong> {Number(selectedOrder.shipping_fee).toLocaleString('vi-VN')} đ</p>
-            <p><strong>Tổng thanh toán:</strong> <span style={{ color: 'red', fontWeight: 'bold' }}>{Number(selectedOrder.total_amount).toLocaleString('vi-VN')} đ</span></p>
+            <p><strong>Tổng thanh toán:</strong> <span style={{ color: 'var(--theme-danger, red)', fontWeight: 'bold' }}>{Number(selectedOrder.total_amount).toLocaleString('vi-VN')} đ</span></p>
             <h4 style={{ marginTop: '16px', marginBottom: '8px' }}>Danh sách sản phẩm:</h4>
             <ul>
               {selectedOrder.items?.map((item, idx) => (

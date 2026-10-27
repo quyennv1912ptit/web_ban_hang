@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { toast } from 'react-toastify';
-import axiosClient from '../api/axiosClient';
+import { getCategories } from '../api/categoriesApi';
 import {
     FiShoppingCart,
     FiHeart,
@@ -19,6 +19,7 @@ import { auth } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import SearchBox from './search/SearchBox';
+import ThemeToggle from './ThemeToggle';
 import './Header.css';
 
 const QUICK_LINKS = [
@@ -42,19 +43,17 @@ const Header = ({ isAdmin = false }) => {
 
     const userMenuRef = useRef(null);
     const catMenuRef = useRef(null);
-    const categoriesLoadedRef = useRef(false);
     const categoriesRequestRef = useRef(null);
 
     const loadCategories = async () => {
-        if (categoriesLoadedRef.current || categoriesRequestRef.current) return;
+        if (categoriesRequestRef.current) return;
 
         setCategoriesLoading(true);
-        const request = axiosClient.get('/categories/');
+        const request = getCategories();
         categoriesRequestRef.current = request;
         try {
             const response = await request;
             setCategories(Array.isArray(response.data) ? response.data : []);
-            categoriesLoadedRef.current = true;
         } catch (error) {
             console.error("Lỗi tải danh mục trên Header:", error);
         } finally {
@@ -139,6 +138,7 @@ const Header = ({ isAdmin = false }) => {
                     </div>
 
                     <div className="header__actions">
+                        <ThemeToggle />
                         <Link to="/wishlist" className="header__action header__hide-mobile" aria-label="Yêu thích">
                             <FiHeart size={22} />
                             <span className="header__action-text">Yêu thích</span>
@@ -193,7 +193,7 @@ const Header = ({ isAdmin = false }) => {
                                             <Link 
                                                 to="/admin" 
                                                 role="menuitem" 
-                                                style={{ color: '#d9534f', fontWeight: 'bold' }}
+                                                style={{ color: 'var(--theme-danger, #d9534f)', fontWeight: 'bold' }}
                                             >
                                                 <FiGrid /> Trang Quản Trị
                                             </Link>
